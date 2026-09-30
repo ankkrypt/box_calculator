@@ -58,12 +58,16 @@ td input,td select{padding:6px 8px;font-size:13px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .chips span{background:var(--soft);border:1px solid var(--line-soft);border-radius:6px;padding:4px 8px;font-size:12px;color:#3d4552}
 .note{color:var(--mute);font-size:12px;margin-top:8px}
-.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.row label{flex:1;min-width:90px}
+.row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.row label{flex:1;min-width:90px}
 @media (max-width:900px){.hero{grid-template-columns:1fr;height:auto;min-height:0}.left{justify-self:stretch;max-width:none;padding:24px 16px;overflow:visible;display:block}.og{grid-template-columns:1fr 1fr;flex:none}.prev{order:-1;height:340px}.grid3{grid-template-columns:1fr}nav{padding:12px 16px}main{padding:24px 16px 48px}}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);padding:20px;width:min(440px,92vw);box-shadow:0 10px 32px rgba(16,24,40,.16)}
 dialog::backdrop{background:rgba(15,23,42,.35)}
 textarea{resize:vertical;min-height:70px}
 .err{color:#c0392b;font-size:12px;min-height:16px;margin:8px 0 0}
+.authwrap{padding:40px 16px;max-width:420px;margin:0 auto}
+.authwrap h1{text-align:center;margin-bottom:16px}
+.authcard{display:flex;flex-direction:column;gap:12px}
+.panel{background:var(--soft);border:1px solid var(--line-soft);border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;word-break:break-all;margin:8px 0 0}
 .die{flex:none;width:190px;display:flex;flex-direction:column;justify-content:center;background:rgba(255,255,255,.6);color:#111;padding:12px;border-right:1px solid rgba(0,0,0,.1)}
 .die svg{display:block;width:100%;height:140px}
 .die *{vector-effect:non-scaling-stroke}
@@ -77,5 +81,162 @@ textarea{resize:vertical;min-height:70px}
 .tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--mute);padding:8px 12px;margin-bottom:-1px}
 .tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--fg)}
 .tab:hover{color:var(--fg)}
+.subtabs{display:flex;background:var(--soft);padding:3px;border-radius:8px;gap:4px;margin-bottom:14px}
+.subtab{flex:1;text-align:center;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;border:0;background:transparent;color:var(--mute);cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.subtab.active{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 table.inv th{position:sticky;top:0;background:var(--surface)}
 input[type=checkbox]{width:auto;padding:0;accent-color:var(--fg)}
+.pwd-wrap{position:relative;display:flex;align-items:center;width:100%}
+.pwd-wrap input{padding-right:38px}
+.pwd-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:0;padding:6px;color:var(--mute);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;line-height:1}
+.pwd-toggle:hover{color:var(--fg);background:transparent}
+.link-btn{background:none;border:none;padding:0;font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none;display:inline-block}
+.link-btn:hover{text-decoration:underline}
+
+/* Drawer / Sidebar styles */
+/* Drawer / Sidebar styles - brand-consistent minimalist design */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  animation: drawerFadeIn 0.15s ease-out;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(290px, 80vw);
+  background: var(--surface);
+  color: var(--fg);
+  border-left: 1px solid var(--line);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  animation: drawerSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes drawerFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.drawer-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.drawer-header-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.drawer-header-sub {
+  font-size: 12px;
+  color: var(--mute);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drawer-close-btn {
+  background: transparent;
+  border: 0;
+  color: var(--mute);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.drawer-close-btn:hover {
+  color: var(--fg);
+}
+
+.drawer-body {
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+.drawer-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.drawer-link:hover {
+  background: var(--soft);
+}
+.drawer-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drawer-footer {
+  padding: 16px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.drawer-logout-btn {
+  width: 100%;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  background: var(--btn);
+  color: var(--btnfg);
+  border: 1px solid var(--btn);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.drawer-logout-btn:hover {
+  background: #2f3036;
+  border-color: #2f3036;
+}
+
+.vendor-user-btn {
+  background: transparent;
+  border: 0;
+  padding: 5px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.vendor-user-btn:hover {
+  background: var(--soft);
+}
+
+@media (max-width: 680px) {
+  .desktop-only { display: none !important; }
+}
+

@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getCurrentUser, clearAuthSession, inviteStaff, getStaffList, removeStaff } from "./auth-client";
 import BoxPreview from "./BoxPreview";
 import DieChart from "./DieChart";
 import { TOL, FLUTES, BOX_TYPES, role, samplePlies } from "./data";
 import { MM_PER_IN, toDisp, toMM, lenText, areaText, rangeDisp, rangeMM, unitLabel } from "./units";
 
 const fmt = n => Math.round(n).toLocaleString("en-IN");
-const kv = (a, b) => <div className="kv"><span>{a}</span><b>{b}</b></div>;
+const kv = (a, b, key) => <div key={key ?? a} className="kv"><span>{a}</span><b>{b}</b></div>;
 
 /* Order dimensions are stored in mm (backend standard); unit conversion happens only at display time. */
 const DIM_FIELDS = [["L", "Length", 20], ["W", "Width", 20], ["H", "Height", 10]];
@@ -86,6 +89,139 @@ function Modal({ onDismiss, children }) {
 }
 
 export default function Page() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const isStaff = user?.role === "staff";
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function verifyAuth() {
+      try {
+        const u = await getCurrentUser();
+        if (!mounted) return;
+        if (u) {
+          setUser(u);
+          setCheckingAuth(false);
+        } else {
+          clearAuthSession();
+          router.replace("/auth");
+        }
+      } catch {
+        if (!mounted) return;
+        clearAuthSession();
+        router.replace("/auth");
+      }
+    }
+
+    verifyAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  const handleLogout = () => {
+    setCheckingAuth(true);
+    clearAuthSession();
+    setUser(null);
+    router.replace("/auth");
+  };
+
+  /* Sidebar Drawer & Profile Modal State */
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  const scrollToQuotation = () => {
+    setSidebarOpen(false);
+    const el = document.getElementById("quotation-section");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.style.transition = "box-shadow 0.3s ease, border-color 0.3s ease";
+      el.style.boxShadow = "0 0 0 2px var(--accent, #2b7fd6)";
+      setTimeout(() => {
+        el.style.boxShadow = "";
+      }, 1500);
+    }
+  };
+
+  const handleSidebarInviteStaff = () => {
+    setSidebarOpen(false);
+    openStaffModal();
+  };
+
+  const handleOpenProfile = async () => {
+    setSidebarOpen(false);
+    setProfileModalOpen(true);
+    if (user?.role === "vendor" && staffList.length === 0) {
+      try {
+        const list = await getStaffList();
+        setStaffList(list);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  /* Staff Management State */
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState("");
+  const [inviteErr, setInviteErr] = useState("");
+
+  const openStaffModal = async () => {
+    setStaffModalOpen(true);
+    setInviteMsg("");
+    setInviteErr("");
+    setStaffLoading(true);
+    try {
+      const list = await getStaffList();
+      setStaffList(list);
+    } catch (err) {
+      setInviteErr(err.message || "Failed to load staff list");
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
+  const handleInviteStaff = async (e) => {
+    e.preventDefault();
+    setInviteMsg("");
+    setInviteErr("");
+    if (!inviteEmail.trim()) {
+      setInviteErr("Staff email is required");
+      return;
+    }
+    setInviteBusy(true);
+    try {
+      await inviteStaff({ name: inviteName, email: inviteEmail });
+      setInviteMsg(`Invite sent to ${inviteEmail}! Temporary password is their email.`);
+      setInviteName("");
+      setInviteEmail("");
+      const updated = await getStaffList();
+      setStaffList(updated);
+    } catch (err) {
+      setInviteErr(err.message || "Failed to invite staff");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleRemoveStaff = async (id, email) => {
+    if (!window.confirm(`Remove staff member ${email}? This will revoke their access immediately.`)) return;
+    try {
+      await removeStaff(id);
+      setStaffList(prev => prev.filter(s => s._id !== id));
+    } catch (err) {
+      alert(err.message || "Failed to remove staff member");
+    }
+  };
+
   const [order, setOrder] = useState({ type: "rsc", L: 400, W: 300, H: 250, Q: 1000, J: 35 });
   const [unit, setUnit] = useState("inch");
   const changeUnit = u => {
@@ -166,6 +302,33 @@ export default function Page() {
   };
   const delReel = id => setReels(old => old.filter(r => r.id !== id));
 
+  /* Track if user changed any value in the calculator (enables "Get new quotation") */
+  const currentCalcState = useMemo(() => JSON.stringify({
+    order,
+    unit,
+    ply,
+    quote,
+    plies,
+    tolAll,
+    fluteRows,
+    reels,
+    tolRows,
+  }), [order, unit, ply, quote, plies, tolAll, fluteRows, reels, tolRows]);
+
+  const [savedCalcState, setSavedCalcState] = useState(null);
+
+  useEffect(() => {
+    if (savedCalcState === null) {
+      setSavedCalcState(currentCalcState);
+    }
+  }, [currentCalcState, savedCalcState]);
+
+  const hasChanges = savedCalcState !== null && savedCalcState !== currentCalcState;
+
+  const handleGetNewQuotation = () => {
+    setSavedCalcState(currentCalcState);
+  };
+
   /* Destructive bulk actions open a warning modal before running. */
   const [confirmBox, setConfirmBox] = useState(null); // {kind, run}
   const askConfirm = (kind, run, n = 0) => () => setConfirmBox({ kind, run, n });
@@ -206,11 +369,85 @@ export default function Page() {
     [reels, unit]
   );
 
+  if (checkingAuth) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--bg, #0b0f19)",
+          color: "var(--fg, #e2e8f0)",
+          fontFamily: "system-ui, sans-serif",
+          gap: "16px",
+        }}
+      >
+        <div
+          style={{
+            width: "36px",
+            height: "36px",
+            border: "3px solid rgba(255, 255, 255, 0.12)",
+            borderTopColor: "var(--pri, #38bdf8)",
+            borderRadius: "50%",
+            animation: "bxSpin 0.8s linear infinite",
+          }}
+        />
+        <p style={{ fontSize: "14px", color: "var(--sub, #94a3b8)", margin: 0 }}>
+          Verifying session…
+        </p>
+        <style>{`
+          @keyframes bxSpin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <>
       <nav>
         <div className="logo"><i />BxCalc</div>
-        <div className="nr"><a href="#calc">Try now</a><button className="pri" type="button">Login</button></div>
+        <div className="nr">
+          {user ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <button
+                type="button"
+                className="vendor-user-btn"
+                onClick={() => setSidebarOpen(true)}
+                title="Click to open menu"
+                aria-label="Open sidebar menu"
+              >
+                Vendor  : {user.name}
+              </button>
+              {user.role === "vendor" && (
+                <button
+                  type="button"
+                  className="btn pri desktop-only"
+                  onClick={openStaffModal}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "12px",
+                  }}
+                >
+                  + Invite Staff
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn desktop-only"
+                onClick={handleLogout}
+                style={{ padding: "4px 8px", fontSize: "12px" }}
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
+            <Link href="/auth" className="btn pri">Login</Link>
+          )}
+        </div>
       </nav>
 
       <section className="hero">
@@ -284,22 +521,86 @@ export default function Page() {
         <div className="grid3">
         <div className="card">
           <h3>Sheet</h3>
-          {sheetOut(unit).map(([k, v]) => kv(k, v))}
+          {sheetOut(unit).map(([k, v]) => kv(k, v, k))}
         </div>
-          <div className="card">
+          <div className="card" id="quotation-section">
             <h3>Quotation</h3>
             <div className="g2" style={{ marginBottom: 10 }}>
-              <label>Conversion ₹/box<input name="conv" type="number" min="0" step="1" value={quote.conv} onChange={set(quote, setQuote)} /></label>
-              <label>Margin %<input name="marg" type="number" min="0" step="1" value={quote.marg} onChange={set(quote, setQuote)} /></label>
-              <label>Tax (GST) %<input name="tax" type="number" min="0" step="1" value={quote.tax} onChange={set(quote, setQuote)} /></label>
-              <label>Transport ₹<input name="trans" type="number" min="0" step="1" value={quote.trans} onChange={set(quote, setQuote)} /></label>
+              <label>
+                Conversion ₹/box
+                <input
+                  name="conv"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={quote.conv}
+                  readOnly={isStaff}
+                  onChange={isStaff ? undefined : set(quote, setQuote)}
+                  style={isStaff ? { background: "var(--soft, #f1f3f6)", color: "var(--mute, #64748b)", cursor: "not-allowed", opacity: 0.7 } : {}}
+                  title={isStaff ? "Only vendor can adjust conversion rate" : ""}
+                />
+              </label>
+              <label>
+                Margin %
+                <input
+                  name="marg"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={quote.marg}
+                  readOnly={isStaff}
+                  onChange={isStaff ? undefined : set(quote, setQuote)}
+                  style={isStaff ? { background: "var(--soft, #f1f3f6)", color: "var(--mute, #64748b)", cursor: "not-allowed", opacity: 0.7 } : {}}
+                  title={isStaff ? "Only vendor can adjust margin rate" : ""}
+                />
+              </label>
+              <label>
+                Tax (GST) %
+                <input
+                  name="tax"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={quote.tax}
+                  readOnly={isStaff}
+                  onChange={isStaff ? undefined : set(quote, setQuote)}
+                  style={isStaff ? { background: "var(--soft, #f1f3f6)", color: "var(--mute, #64748b)", cursor: "not-allowed", opacity: 0.7 } : {}}
+                  title={isStaff ? "Only vendor can adjust tax rate" : ""}
+                />
+              </label>
+              <label>
+                Transport ₹
+                <input
+                  name="trans"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={quote.trans}
+                  onChange={set(quote, setQuote)}
+                />
+              </label>
             </div>
-            {QUOTE_OUT.map(([k, v]) => kv(k, v))}
+            {QUOTE_OUT.map(([k, v]) => kv(k, v, k))}
             <div className="kv"><span>Final order price</span><span className="big">₹57,780</span></div>
+            <button
+              type="button"
+              className="btn pri"
+              disabled={!hasChanges}
+              onClick={handleGetNewQuotation}
+              style={{
+                width: "100%",
+                marginTop: 12,
+                padding: "9px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              Get new quotation
+            </button>
           </div>
           <div className="card">
             <h3>Box summary</h3>
-            {SUM_OUT.map(([k, v]) => kv(k, v))}
+            {SUM_OUT.map(([k, v]) => kv(k, v, k))}
           </div>
         </div>
 
@@ -428,6 +729,231 @@ export default function Page() {
           <div className="row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
             <button type="button" style={{ flex: "none" }} onClick={() => setDialog(null)}>Cancel</button>
             <button type="button" className="pri" style={{ flex: "none" }} onClick={saveReel}>Add reel</button>
+          </div>
+        </Modal>
+      )}
+
+      {staffModalOpen && (
+        <Modal onDismiss={() => setStaffModalOpen(false)}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <h3 style={{ fontSize: "16px", margin: 0, fontWeight: "700" }}>Manage Staff</h3>
+            <button
+              type="button"
+              onClick={() => setStaffModalOpen(false)}
+              style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="note" style={{ margin: "0 0 14px 0", fontSize: "12px" }}>
+            Invited staff can log in at <b>/auth</b> using their email as username and temporary password, then reset it anytime.
+          </p>
+
+          <form onSubmit={handleInviteStaff} style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
+            <div className="row" style={{ alignItems: "flex-end" }}>
+              <label style={{ flex: 1 }}>
+                Staff name
+                <input
+                  type="text"
+                  placeholder="e.g. Alex Smith"
+                  value={inviteName}
+                  onChange={e => setInviteName(e.target.value)}
+                />
+              </label>
+              <label style={{ flex: 1.2 }}>
+                Staff email
+                <input
+                  type="email"
+                  required
+                  placeholder="staff@example.com"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={inviteBusy}
+                className="btn pri"
+                style={{ padding: "6px 14px", height: "34px", whiteSpace: "nowrap", flex: "none" }}
+              >
+                {inviteBusy ? "Inviting…" : "Invite"}
+              </button>
+            </div>
+
+            {inviteMsg && (
+              <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.3)", borderRadius: "6px", padding: "8px 10px", fontSize: "12px", color: "#4ade80" }}>
+                {inviteMsg}
+              </div>
+            )}
+            {inviteErr && (
+              <div className="err" style={{ margin: 0 }}>
+                {inviteErr}
+              </div>
+            )}
+          </form>
+
+          <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <h4 style={{ fontSize: "13px", fontWeight: "600", margin: 0 }}>
+                Staff Members ({staffList.length})
+              </h4>
+            </div>
+
+            {staffLoading ? (
+              <p className="note">Loading staff list…</p>
+            ) : staffList.length === 0 ? (
+              <p className="note" style={{ fontStyle: "italic", margin: "4px 0" }}>No staff members invited yet.</p>
+            ) : (
+              <div style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+                {staffList.map(member => (
+                  <div
+                    key={member._id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: "var(--soft)",
+                      border: "1px solid var(--line-soft)",
+                      borderRadius: "6px",
+                      padding: "7px 10px",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: "600", fontSize: "12.5px" }}>
+                        {member.name || member.email.split("@")[0]}
+                      </div>
+                      <div style={{ color: "var(--mute)", fontSize: "11.5px" }}>
+                        {member.email} · <span style={{ color: member.status === "active" ? "#4ade80" : "var(--mute)", textTransform: "capitalize" }}>{member.status}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveStaff(member._id, member.email)}
+                      className="btn"
+                      style={{ padding: "3px 8px", fontSize: "11px", color: "#f87171", borderColor: "rgba(248, 113, 113, 0.3)" }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Sidebar Drawer from Right */}
+      {sidebarOpen && (
+        <>
+          <div
+            className="drawer-backdrop"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="drawer" role="dialog" aria-label="Navigation drawer" aria-modal="true">
+            <div className="drawer-header">
+              <div className="drawer-header-info">
+                <div className="drawer-header-title">
+                  Vendor  : {user?.name || "User"}
+                </div>
+                <div className="drawer-header-sub" title={user?.email}>
+                  {user?.email}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="drawer-close-btn"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close drawer"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="drawer-body">
+              <button
+                type="button"
+                className="drawer-link"
+                onClick={scrollToQuotation}
+              >
+                Quotation Page
+              </button>
+
+              {user?.role === "vendor" && (
+                <button
+                  type="button"
+                  className="drawer-link"
+                  onClick={handleSidebarInviteStaff}
+                >
+                  Invite Staff
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="drawer-link"
+                onClick={handleOpenProfile}
+              >
+                Profile
+              </button>
+            </div>
+
+            <div className="drawer-footer">
+              <button
+                type="button"
+                className="drawer-logout-btn"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  handleLogout();
+                }}
+              >
+                Log out
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* Account Profile Modal */}
+      {profileModalOpen && (
+        <Modal onDismiss={() => setProfileModalOpen(false)}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+            <h3 style={{ fontSize: "16px", margin: 0, fontWeight: "700" }}>Account Profile</h3>
+            <button
+              type="button"
+              onClick={() => setProfileModalOpen(false)}
+              style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
+            <div className="kv"><span>Full Name</span><b>{user?.name || "Vendor User"}</b></div>
+            <div className="kv"><span>Email</span><b>{user?.email || "—"}</b></div>
+            <div className="kv"><span>Account Role</span><b style={{ textTransform: "capitalize" }}>{user?.role === "vendor" ? "Vendor (Owner)" : "Staff Member"}</b></div>
+            {user?.company && (
+              <div className="kv"><span>Company</span><b>{user.company}</b></div>
+            )}
+            <div className="kv"><span>Subscription Plan</span><b>Active</b></div>
+            {user?.role === "vendor" && (
+              <div className="kv"><span>Active Staff</span><b>{staffList.length} member(s)</b></div>
+            )}
+          </div>
+
+          <div className="row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
+            <button
+              type="button"
+              className="btn pri"
+              onClick={() => setProfileModalOpen(false)}
+              style={{ flex: "none", padding: "6px 16px" }}
+            >
+              Close
+            </button>
           </div>
         </Modal>
       )}
