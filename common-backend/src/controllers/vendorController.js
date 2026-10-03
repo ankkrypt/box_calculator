@@ -1,7 +1,14 @@
 const crypto = require("crypto");
 const Vendor = require("../models/Vendor");
 const Staff = require("../models/Staff");
+const Quotation = require("../models/Quotation");
+const ScoreTolerance = require("../models/ScoreTolerance");
+const Flute = require("../models/Flute");
+const PaperGrade = require("../models/PaperGrade");
 const RefreshToken = require("../models/RefreshToken");
+const { DEFAULT_TOLERANCES } = require("./toleranceController");
+const { DEFAULT_FLUTES } = require("./fluteController");
+const { DEFAULT_PAPER_GRADES } = require("./paperGradeController");
 const config = require("../config/env");
 const {
   signAccessToken,
@@ -11,19 +18,6 @@ const {
   setRefreshCookie,
   clearRefreshCookie,
 } = require("../utils/token");
-
-async function uniqueSlug(vendorName) {
-  const base =
-    vendorName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "") || "vendor";
-  let slug = base;
-  for (let i = 2; await Vendor.exists({ slug }); i += 1) {
-    slug = `${base}-${i}`;
-  }
-  return slug;
-}
 
 /* Helper to issue tokens & save refresh session for vendor */
 async function issueVendorSession(vendor) {
@@ -52,7 +46,6 @@ async function issueVendorSession(vendor) {
       name: vendor.name,
       email: vendor.email,
       vendorName: vendor.vendorName,
-      slug: vendor.slug,
       plan: vendor.plan || "free",
       role: "vendor",
     },
@@ -93,8 +86,43 @@ async function signup(req, res, next) {
       email: normalizedEmail,
       password,
       vendorName: vendorName.trim(),
-      slug: await uniqueSlug(vendorName),
     });
+
+    // Automatically bootstrap default configurations ONLY during signup:
+    // 1. Default quotation rates: 2 INR/box conversion, 10% profit margin, 5% tax, 0% discount
+    await Quotation.create({
+      vendorId: vendor._id,
+      conversion: 2,
+      profitMargin: 10,
+      tax: 5,
+      discount: 0,
+    });
+
+    // 2. Default score tolerances: 6mm (3ply), 12mm (5ply), 18mm (7ply), 24mm (9ply)
+    await ScoreTolerance.create({
+      vendorId: vendor._id,
+      tolerances: DEFAULT_TOLERANCES,
+      updatedBy: vendor._id,
+      updatedByType: "vendor",
+    });
+
+    // 3. Default flutes table (S, K, A, C, B, D, E, F, G, N)
+    const initialFlutes = DEFAULT_FLUTES.map((f) => ({
+      ...f,
+      vendorId: vendor._id,
+      createdBy: vendor._id,
+      createdByType: "vendor",
+    }));
+    await Flute.insertMany(initialFlutes);
+
+    // 4. Default paper grades
+    const initialPapers = DEFAULT_PAPER_GRADES.map((p) => ({
+      ...p,
+      vendorId: vendor._id,
+      createdBy: vendor._id,
+      createdByType: "vendor",
+    }));
+    await PaperGrade.insertMany(initialPapers);
 
     const session = await issueVendorSession(vendor);
     setRefreshCookie(res, session.refreshToken);
@@ -467,6 +495,84 @@ async function resetPasswordWithToken(req, res, next) {
   }
 }
 
+/* GET /api/auth/vendor/settings
+   Returns quotation rates (conversion, profitMargin, tax, discount) from Quotation collection.
+   Accessible to both Vendor and Staff.
+   Never modifies or resets user values. */
+async function getSettings(req, res, next) {
+  try {
+    const vendorId = req.auth.vendorId;
+    const quote = await Quotation.findOne({ vendorId });
+
+    const conv = quote ? Number(quote.conversion) : 0;
+    const marg = quote ? Number(quote.profitMargin) : 0;
+    const tax = quote ? Number(quote.tax) : 0;
+    const discount = quote ? Number(quote.discount) : 0;
+
+    return res.json({
+      settings: {
+        conv,
+        marg,
+        tax,
+        discount,
+        conversion: conv,
+        profitMargin: marg,
+        conversionRate: conv,
+        defaultMarginPct: marg,
+        gstPct: tax,
+      },
+      role: req.auth.role,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/* PUT /api/auth/vendor/settings
+   Updates quotation rates (conversion, profitMargin, tax, discount) in Quotation collection.
+   Vendor only. */
+async function updateSettings(req, res, next) {
+  try {
+    const vendorId = req.auth.vendorId;
+    const { conv, marg, tax, discount, conversion, profitMargin, conversionRate, defaultMarginPct, gstPct } = req.body;
+
+    const convVal = conv !== undefined ? Number(conv) : conversion !== undefined ? Number(conversion) : conversionRate !== undefined ? Number(conversionRate) : undefined;
+    const margVal = marg !== undefined ? Number(marg) : profitMargin !== undefined ? Number(profitMargin) : defaultMarginPct !== undefined ? Number(defaultMarginPct) : undefined;
+    const taxVal = tax !== undefined ? Number(tax) : gstPct !== undefined ? Number(gstPct) : undefined;
+    const discVal = discount !== undefined ? Number(discount) : undefined;
+
+    const updateFields = {};
+    if (convVal !== undefined && convVal >= 0) updateFields.conversion = convVal;
+    if (margVal !== undefined && margVal >= 0 && margVal <= 100) updateFields.profitMargin = margVal;
+    if (taxVal !== undefined && taxVal >= 0 && taxVal <= 100) updateFields.tax = taxVal;
+    if (discVal !== undefined && discVal >= 0 && discVal <= 100) updateFields.discount = discVal;
+
+    const quote = await Quotation.findOneAndUpdate(
+      { vendorId },
+      { $set: updateFields },
+      { upsert: true, new: true, setDefaultsOnInsert: false }
+    );
+
+    return res.json({
+      ok: true,
+      message: "Quotation rates updated successfully",
+      settings: {
+        conv: quote.conversion,
+        marg: quote.profitMargin,
+        tax: quote.tax,
+        discount: quote.discount,
+        conversion: quote.conversion,
+        profitMargin: quote.profitMargin,
+        conversionRate: quote.conversion,
+        defaultMarginPct: quote.profitMargin,
+        gstPct: quote.tax,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   signup,
   login,
@@ -479,4 +585,6 @@ module.exports = {
   removeStaff,
   getStaffList,
   getMe,
+  getSettings,
+  updateSettings,
 };

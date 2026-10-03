@@ -25,4 +25,8 @@ router.post("/invite-staff", requireAuth, requireRole("vendor"), vendorControlle
 router.delete("/remove-staff/:id", requireAuth, requireRole("vendor"), vendorController.removeStaff);
 router.get("/staff", requireAuth, requireRole("vendor"), vendorController.getStaffList);
 
+/* Quotation Rates & Engine Settings (Accessible to vendor and their staff) */
+router.get("/settings", requireAuth, vendorController.getSettings);
+router.put("/settings", requireAuth, requireRole("vendor"), vendorController.updateSettings);
+
 module.exports = router;

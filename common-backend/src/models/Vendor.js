@@ -9,16 +9,7 @@ const vendorSchema = new mongoose.Schema(
   {
     /* Company identity */
     vendorName: { type: String, required: true, trim: true, maxlength: 120 },
-    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     plan: { type: String, enum: ["free", "paid"], default: "free" }, // Phase 2: subscription
-
-    /* Company-level engine settings (₹, %) — admin-editable later */
-    settings: {
-      conversionRate: { type: Number, min: 0 }, // ₹/kg, vendor-supplied (D10)
-      defaultMarginPct: { type: Number, min: 0, max: 100, default: 0 },
-      defaultWastePct: { type: Number, min: 0, max: 100, default: 0 },
-      gstPct: { type: Number, min: 0, max: 100, default: 12 }, // indicative (D2)
-    },
 
     /* Login identity (the owner account of the company) */
     email: {

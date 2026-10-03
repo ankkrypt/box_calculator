@@ -233,7 +233,7 @@ async function getMe(req, res, next) {
       return res.status(404).json({ error: { message: "Staff account not found", status: 404 } });
     }
 
-    const vendor = await Vendor.findById(staff.vendorId).select("vendorName slug plan settings");
+    const vendor = await Vendor.findById(staff.vendorId).select("vendorName plan");
     return res.json({
       user: req.auth,
       staff,

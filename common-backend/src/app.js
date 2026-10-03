@@ -21,7 +21,8 @@ app.use(
       if (
         origin === config.corsOrigin ||
         origin.startsWith("http://localhost:") ||
-        origin.startsWith("http://127.0.0.1:")
+        origin.startsWith("http://127.0.0.1:") ||
+        /^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(origin)
       ) {
         return callback(null, true);
       }
@@ -63,12 +64,26 @@ app.get("/", (_req, res) => {
   res.json({ name: "boxcalc-api", status: "ok" });
 });
 
+const quotationRoutes = require("./routes/quotationRoutes");
+const reelRoutes = require("./routes/reelRoutes");
+const fluteRoutes = require("./routes/fluteRoutes");
+const toleranceRoutes = require("./routes/toleranceRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const paperRoutes = require("./routes/paperRoutes");
+
 /* API Endpoints: MVC Auth Routes */
 app.use("/api/health", healthRouter);
 app.post("/api/auth/refresh", vendorController.refresh);
 app.post("/api/auth/logout", vendorController.logout);
 app.use("/api/auth/vendor", vendorRoutes);
+app.use("/api/vendor", vendorRoutes);
 app.use("/api/auth/staff", staffRoutes);
+app.use("/api/quotation", quotationRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/reels", reelRoutes);
+app.use("/api/flutes", fluteRoutes);
+app.use("/api/tolerances", toleranceRoutes);
+app.use("/api/papers", paperRoutes);
 
 /* 404 for unknown API routes, then the central error handler. */
 app.use(notFound);

@@ -126,7 +126,7 @@ export default function AuthPage() {
 
   return (
     <main className="authwrap">
-      <h1>BxCalc</h1>
+      <h1>BoxCalc</h1>
 
       {showForgot ? (
         /* Reset Password Box */

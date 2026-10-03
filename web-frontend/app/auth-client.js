@@ -2,7 +2,17 @@
    Access token: short-lived JWT, kept in localStorage, sent as `Authorization: Bearer <token>`.
    Refresh token: long-lived secret, httpOnly cookie managed by the server. */
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+export function getApiUrl() {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    // When accessed from a phone or other device on the LAN (e.g. 192.168.0.235)
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      return `${window.location.protocol}//${host}:5000`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+}
+
 const TOKEN_KEY = "bxcalc.accessToken";
 const USER_KEY = "bxcalc.user";
 
@@ -53,9 +63,10 @@ export async function refresh() {
 
   inFlightRefresh = (async () => {
     try {
-      const res = await fetch(`${API}/api/auth/refresh`, {
+      const res = await fetch(`${getApiUrl()}/api/auth/refresh`, {
         method: "POST",
         credentials: "include",
+        signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(3500) : undefined,
       });
 
       if (!res.ok) {
@@ -81,9 +92,10 @@ export async function refresh() {
 /* Fetch wrapper: attaches Bearer token, auto-refreshes once on 401 */
 export async function api(path, { method = "GET", body, headers, retry = true } = {}) {
   const token = getToken();
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(`${getApiUrl()}${path}`, {
     method,
     credentials: "include",
+    signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
     headers: {
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -112,7 +124,7 @@ export function clearAuthSession() {
   setStoredUser(null);
   try {
     // Non-blocking fire to revoke token and clear httpOnly cookie
-    fetch(`${API}/api/auth/logout`, {
+    fetch(`${getApiUrl()}/api/auth/logout`, {
       method: "POST",
       credentials: "include",
     }).catch(() => {});
@@ -209,4 +221,200 @@ export async function removeStaff(id) {
   return api(`/api/auth/vendor/remove-staff/${id}`, {
     method: "DELETE",
   });
+}
+
+/* Quotation Rates & Settings (stored in Quotation model) */
+export async function getQuotation() {
+  return api("/api/quotation");
+}
+
+export async function updateQuotation({ conversion, profitMargin, tax, discount, conv, marg }) {
+  return api("/api/quotation", {
+    method: "PUT",
+    body: { conversion, profitMargin, tax, discount, conv, marg },
+  });
+}
+
+// Aliases for compatibility
+export async function getVendorPricingSettings() {
+  return getQuotation();
+}
+
+export async function updateVendorPricingSettings(payload) {
+  return updateQuotation(payload);
+}
+
+/* Packaging Calculation Engine */
+export async function calculateAndSaveQuotation({ order, board, pricing }) {
+  return api("/api/quotation/calculate", {
+    method: "POST",
+    body: { order, board, pricing },
+  });
+}
+
+export async function getLatestQuotation() {
+  return api("/api/quotation/latest");
+}
+
+/* ==========================================================================
+   CONFIRMED ORDERS & ORDER HISTORY API
+   ========================================================================== */
+export async function confirmOrder({ order, board, pricing }) {
+  return api("/api/orders", {
+    method: "POST",
+    body: { order, board, pricing },
+  });
+}
+
+export async function getOrders() {
+  const data = await api("/api/orders");
+  return data?.orders || [];
+}
+
+/* ==========================================================================
+   REEL INVENTORY API
+   ========================================================================== */
+export async function getReels() {
+  const data = await api("/api/reels");
+  return data?.reels || [];
+}
+
+export async function createReel(payload) {
+  const data = await api("/api/reels", {
+    method: "POST",
+    body: payload,
+  });
+  return data?.reel;
+}
+
+export async function updateReel(id, payload) {
+  const data = await api(`/api/reels/${id}`, {
+    method: "PUT",
+    body: payload,
+  });
+  return data?.reel;
+}
+
+export async function deleteReel(id) {
+  return api(`/api/reels/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function bulkDeleteReels(ids) {
+  return api("/api/reels/bulk-delete", {
+    method: "POST",
+    body: { ids },
+  });
+}
+
+/* ==========================================================================
+   FLUTE TABLE API
+   ========================================================================== */
+export async function getFlutes() {
+  const data = await api("/api/flutes");
+  return data?.flutes || [];
+}
+
+export async function createFlute(payload) {
+  const data = await api("/api/flutes", {
+    method: "POST",
+    body: payload,
+  });
+  return data?.flute;
+}
+
+export async function updateFlute(id, payload) {
+  const data = await api(`/api/flutes/${id}`, {
+    method: "PUT",
+    body: payload,
+  });
+  return data?.flute;
+}
+
+export async function deleteFlute(id) {
+  return api(`/api/flutes/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function bulkDeleteFlutes(ids) {
+  return api("/api/flutes/bulk-delete", {
+    method: "POST",
+    body: { ids },
+  });
+}
+
+export async function resetFlutes() {
+  const data = await api("/api/flutes/reset", {
+    method: "POST",
+  });
+  return data?.flutes || [];
+}
+
+/* ==========================================================================
+   SCORE TOLERANCE API
+   ========================================================================== */
+export async function getScoreTolerances() {
+  const data = await api("/api/tolerances");
+  return data?.tolerances || {};
+}
+
+export async function updateScoreTolerances(tolerances) {
+  const data = await api("/api/tolerances", {
+    method: "PUT",
+    body: { tolerances },
+  });
+  return data?.tolerances;
+}
+
+export async function resetScoreTolerances() {
+  const data = await api("/api/tolerances/reset", {
+    method: "POST",
+  });
+  return data?.tolerances;
+}
+
+/* ==========================================================================
+   PAPER GRADES API
+   ========================================================================== */
+export async function getPaperGrades() {
+  const data = await api("/api/papers");
+  return data?.papers || [];
+}
+
+export async function createPaperGrade(payload) {
+  const data = await api("/api/papers", {
+    method: "POST",
+    body: payload,
+  });
+  return data?.paper;
+}
+
+export async function updatePaperGrade(id, payload) {
+  const data = await api(`/api/papers/${id}`, {
+    method: "PUT",
+    body: payload,
+  });
+  return data?.paper;
+}
+
+export async function deletePaperGrade(id) {
+  return api(`/api/papers/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function bulkDeletePaperGrades(ids) {
+  return api("/api/papers/bulk-delete", {
+    method: "POST",
+    body: { ids },
+  });
+}
+
+export async function resetPaperGrades() {
+  const data = await api("/api/papers/reset", {
+    method: "POST",
+  });
+  return data?.papers || [];
 }

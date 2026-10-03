@@ -9,31 +9,31 @@ export default function NotFound() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "var(--bg, #0b0f19)",
-        color: "var(--fg, #e2e8f0)",
-        fontFamily: "system-ui, sans-serif",
+        background: "var(--bg, #f4f5f7)",
+        color: "var(--fg, #18181b)",
+        fontFamily: "Inter, system-ui, sans-serif",
         padding: "24px",
         textAlign: "center",
       }}
     >
-      <h1 style={{ fontSize: "48px", fontWeight: "700", marginBottom: "8px" }}>404</h1>
-      <p style={{ fontSize: "16px", color: "var(--sub, #94a3b8)", marginBottom: "24px" }}>
+      <h1 style={{ fontSize: "48px", fontWeight: "700", margin: "0 0 8px 0" }}>404</h1>
+      <p style={{ fontSize: "15px", color: "var(--mute, #64748b)", margin: "0 0 24px 0" }}>
         Page not found
       </p>
       <Link
         href="/"
         style={{
           display: "inline-block",
-          padding: "8px 16px",
-          background: "var(--pri, #38bdf8)",
-          color: "#0b0f19",
+          padding: "8px 18px",
+          background: "var(--btn, #18181b)",
+          color: "#ffffff",
           borderRadius: "6px",
           textDecoration: "none",
-          fontWeight: "600",
-          fontSize: "14px",
+          fontWeight: "500",
+          fontSize: "13px",
         }}
       >
-        Return Home
+        Return to Calculator
       </Link>
     </div>
   );

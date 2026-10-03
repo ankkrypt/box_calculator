@@ -165,7 +165,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <main className="authwrap">
-      <h1>BxCalc</h1>
+      <h1>BoxCalc</h1>
       <Suspense fallback={<div className="card authcard"><p className="note">Loading reset form…</p></div>}>
         <ResetPasswordForm />
       </Suspense>
