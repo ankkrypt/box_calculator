@@ -73,28 +73,27 @@ flowchart TB
 
   subgraph M3["Module 3 - Calculator - box costing engine"]
     C0["Public free calculator - no login<br/>engine runs client-side - manual specs - no inventory"]:::input
-    C1["Box type - RSC / HSC / FOL / Telescope / OPF /<br/>Die-Cut / Multi-Depth + vendor alias names"]:::input
-    C2["Inside dims L W H mm - quantity 1-100000<br/>ply 3 / 5 / 7 (9 = admin-only triple-wall) - flute A C B E N"]:::input
-    C3["Allowances - joint mm + score tolerance by ply<br/>3p 6 - 5p 12 - 7p 18 - 9p 24 (admin-editable)"]:::input
-    C4["Layer stack per ply - reelId - GSM - BF - price per kg - deckle<br/>BORROWED from Module 2 - typed there by admin or staff"]:::external
-    C5["Take-up factor from verified table - not user input<br/>A 1.55 - C 1.44 - B 1.33 - E 1.27 (supplier-overridable)"]:::computed
-    C6["Waste pct computed from the layer reel deckle offcut (D9)<br/>wastePct = (1 - sheetsAcross x sheetWidth / deckle) x 100<br/>optional tenant process-waste add-on"]:::computed
-    CV["Validate - dims 1-2000 mm - qty 1-100000 - GSM 100-400 - BF 16-40"]:::computed
-    C7["Costing pipeline - PRD section 5<br/>sheetLength = 2L + 2W + joint - sheetWidth = H + W + score<br/>layerWeight = area x GSM / 1000 (flute layers x takeUp)<br/>layerCost = weight x pricePerKg x (1 + waste + processWaste)<br/>outputs - paperCostPerBox - boardWeight - totalGSM - boardBS - boxWeightKg"]:::computed
+    C1["Box type - RSC / HSC / FOL / Telescope / Folder<br/>tailored Blank Length & Width formulas"]:::input
+    C2["Inside dims L W H mm - quantity 1-100000<br/>ply 3 / 5 / 7 / 9 - flute B, C, E, etc."]:::input
+    C3["Allowances - joint mm + score tolerance by ply<br/>3p: 6mm | 5p: 12mm | 7p: 18mm | 9p: 24mm (admin-editable)"]:::input
+    C4["Layer stack per ply - reelId - GSM - BF - price per kg<br/>BORROWED from Module 2 - typed there by admin or staff"]:::external
+    C5["Take-up factor from verified table - not user input<br/>A 1.53 - C 1.42 - B 1.32 - E 1.27 (supplier-overridable)"]:::computed
+    C6["Overall Wastage % applied to total board paper cost<br/>(zero per-layer wastage added)"]:::input
+    CV["Validate - dims 1-2000 mm - qty 1-100000 - GSM 20-500 - BF 1-50"]:::computed
+    C7["Costing pipeline<br/>sheetArea = blankLength x blankWidth / 1e6<br/>layerWeight = area x GSM x takeUp / 1000<br/>layerCost = weight x pricePerKg<br/>outputs - paperCostPerBox - boardWeight - totalGSM - boardBS - boxWeightKg"]:::computed
     C0 --> CV
     C1 --> CV
     C2 --> CV
     C3 --> CV
     C4 --> CV
-    C4 --> C6
     C5 --> C7
     C6 --> C7
     CV --> C7
   end
 
   subgraph M5["Module 5 - Quotation"]
-    Q1["Commercial terms<br/>marginPct per box (D8) + conversion rate Rs per kg (D10 - required)<br/>defaults from tenant settings set by admin - staff adjusts per quote<br/>transport + GST 12 pct indicative (CA to confirm)<br/>order discount optional - off by default"]:::input
-    Q2["Price pipeline - engine steps 5 to 10<br/>conversionCost = boardWeight x rate<br/>marginPerBox = (paperCost + conversionCost) x marginPct<br/>costPerBox = paper + conversion + margin<br/>totalCost = costPerBox x qty<br/>grandTotal = totalCost - discount + transport + GST"]:::computed
+    Q1["Commercial terms<br/>profitMargin % + conversion rate Rs per box (vendor settings)<br/>transport + GST % + order discount %"]:::input
+    Q2["Price pipeline<br/>paperCostWithWastage = paperCost x (1 + overallWastage % / 100)<br/>baseCost = paperCostWithWastage + conversionPerBox<br/>costPerBoxWithMargin = baseCost x (1 + margin % / 100)<br/>totalPcsCost = costPerBoxWithMargin x quantity<br/>taxableSubtotal = (totalPcsCost - discount) + transport<br/>finalOrderPrice = taxableSubtotal + GST"]:::computed
     Q3["Quote record - number - validity date<br/>status draft / sent / accepted / rejected / expired"]:::computed
     Q4["Branded PDF quote + WhatsApp or link share<br/>vendor name - logo - terms + non-binding disclaimer"]:::computed
     Q1 --> Q2

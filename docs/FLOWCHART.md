@@ -173,31 +173,28 @@ breakdown UI.
 
 ```mermaid
 flowchart TD
-  IN(["Inputs - dims - qty - layer stack<br/>allowances - rates"]) --> V{"Validate<br/>dims 1 to 2000 mm<br/>qty 1 to 100000<br/>GSM 100 to 400 - BF 16 to 40"}
+  IN(["Inputs - dims - qty - ply count - layer stack<br/>score tolerance - rates"]) --> V{"Validate<br/>dims 1 to 2000 mm<br/>qty 1 to 100000<br/>GSM 20 to 500 - BF 1 to 50"}
   V -->|"invalid"| ERR(["Return validation errors"])
-  V -->|"valid"| S1["Step 1 - sheet development<br/>sheetLength = 2L + 2W + jointAllowance<br/>sheetWidth = H + W + scoreTolerance ply"]
-  S1 --> S2["Step 2 - sheet area m2<br/>sheetLength x sheetWidth / 1e6"]
-  S2 --> LOOP["For each layer in stack"]
+  V -->|"valid"| S1["Step 1 - sheet development by box type<br/>RSC: length = 2(L+W)+4Tol+J | width = W+H+2Tol<br/>HSC, FOL, Telescope, Folder use style formulas"]
+  S1 --> S2["Step 2 - sheet area m2<br/>blankLength x blankWidth / 1e6"]
+  S2 --> LOOP["For each layer in stack (1 to ply)"]
   LOOP --> ROLE{"Layer role?"}
-  ROLE -->|"liner"| LW["layerWeight = area x GSM / 1000"]
-  ROLE -->|"flute"| FW["layerWeight = area x GSM x takeUpFactor / 1000"]
-  LW --> WC["layerWastePct from the layer reel deckle<br/>sheetsAcross = floor deckle / layerSheetWidth<br/>wastePct = 1 - sheetsAcross x sheetWidth / deckle x 100"]
-  FW --> WC
-  WC --> LC["layerCost = layerWeight x pricePerKg<br/>x 1 + wastePct + processWastePct"]
+  ROLE -->|"liner"| LW["layerWeightKg = area x GSM / 1000"]
+  ROLE -->|"flute"| FW["layerWeightKg = area x GSM x takeUpFactor / 1000"]
+  LW --> LC["layerCost = layerWeightKg x pricePerKg<br/>(pure weight - no per-layer wastage)"]
+  FW --> LC
   LC --> MORE{"More layers?"}
   MORE -->|"yes"| LOOP
   MORE -->|"no"| PC["paperCostPerBox = sum of layerCost"]
-  PC --> BW["boardWeight = sum of layerWeight"]
-  BW --> TG["totalGSM = liner GSM sum + flute GSM x takeUp sum"]
-  BW --> CC["conversionCostPerBox = boardWeight x<br/>vendor conversion rate per kg"]
-  CC --> MARG["marginPerBox = paperCost + conversionCost x marginPct<br/>margin sits at box level - decision D8"]
-  MARG --> CPB["costPerBox = paper + conversion + margin"]
-  CPB --> SUB["totalCost = costPerBox x qty"]
-  SUB --> TR["transport added"]
-  TR --> FOP["finalOrderPrice = totalCost + transport"]
-  FOP --> GST["gst = finalOrderPrice x 0.12 - indicative"]
-  GST --> TOT["grandTotal = finalOrderPrice + gst"]
-  TOT --> DISP["Display - totalGSM - boxWeightKg<br/>totalWeightKg - boardBS kg/cm2"]
+  PC --> WST["wastagePerBox = paperCostPerBox x (overallWastagePct / 100)<br/>paperWithWastage = paperCostPerBox + wastagePerBox"]
+  WST --> BASE["baseCost = paperWithWastage + conversionRatePerBox"]
+  BASE --> MARG["costPerBoxWithMargin = baseCost x (1 + marginPct / 100)"]
+  MARG --> SUB["totalPcsCost = costPerBoxWithMargin x quantity"]
+  SUB --> DISC["totalAfterDiscount = totalPcsCost - (totalPcsCost x discountPct / 100)"]
+  DISC --> TR["taxableAmount = totalAfterDiscount + transport"]
+  TR --> GST["taxAmount = taxableAmount x (taxPct / 100)"]
+  GST --> TOT["finalOrderPrice = taxableAmount + taxAmount"]
+  TOT --> DISP["Display - totalGSM - boxWeightKg - totalWeightKg - boardBS - finalOrderPrice"]
   DISP --> OUT(["Return full quote object"])
 ```
 

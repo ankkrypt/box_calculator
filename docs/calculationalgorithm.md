@@ -3,24 +3,25 @@
 | Field | Value |
 |---|---|
 | Document | Calculation algorithm flow chart |
-| Version | 1.1 |
-| Date | 2026-09-24 |
-| Depends on | PRD v2.1 §5, Corrected notes (D8, D9, D10), Modules data-flow v1.0 |
-| Scope | One end-to-end flow of the box costing algorithm — user inputs, per-layer data, sheet development, per-layer costing loop, box rollup, order totals |
+| Version | 2.0 (Active Production Spec) |
+| Date | 2026-10-03 |
+| Depends on | [calculationFlow.md](file:///c:/github/box_calculator/docs/calculationFlow.md), PRD v2.1 §5, Active Engine (`calculator.js` & `page.jsx`) |
+| Scope | End-to-end flow of the box costing algorithm: user inputs, sheet development per box style, pure per-layer weight & cost loop, board rollup, overall wastage, conversion, margins, and final price |
 
-This is the dictated costing flow, corrected and generalised so it works for
-**all corrugated boxes**: any box style (RSC / HSC / FOL / Telescope / OPF),
-any ply count (3 / 5 / 7 / 9 — single, double, triple wall) and any flute mix
-(A / C / B / E / N, including mixed flutes in multi-wall boards).
+This is the active costing flow implemented across the backend and frontend for **all corrugated boxes**: any box style (RSC, HSC, FOL, Telescope, Folder), any ply count (3, 5, 7, 9 ply — single, double, triple wall), and any flute mix (A, C, B, E, N, etc.).
+
+---
 
 ## How to read the diagram
 
-- **Green** = typed by a human (user input).
-- **Blue** = computed by the engine (formula, never editable).
-- **Orange** = borrowed from the inventory module (reel data).
-- **Pink** = final result / display output.
+- **Green** = Typed by human (user / vendor input).
+- **Blue** = Computed by the engine (formula, reactive).
+- **Orange** = Selected from inventory module (reel data).
+- **Pink** = Final result / display output.
 
-## The flow chart
+---
+
+## The Flow Chart
 
 ```mermaid
 flowchart TD
@@ -31,168 +32,132 @@ flowchart TD
 
   START(["Corrugated box costing starts"]) --> BT
 
-  subgraph PH1["Phase 1 - what the user gives"]
-    BT["Box type - RSC / HSC / FOL /<br/>Telescope / OPF / vendor alias"]:::input
-    BT --> DIM["Inside dims L W H in mm"]:::input
-    DIM --> QTY["Quantity in boxes 1 to 100000"]:::input
-    QTY --> JOINT["Joint allowance in mm"]:::input
-    JOINT --> PLY["Number of ply - 3 / 5 / 7 / 9<br/>single / double / triple wall"]:::input
+  subgraph PH1["Phase 1 - Box & Order Geometry"]
+    BT["Box type - RSC / HSC / FOL / Telescope / Folder"]:::input
+    BT --> DIM["Inside dims L, W, H in mm (or inch)"]:::input
+    DIM --> QTY["Quantity in boxes (Q)"]:::input
+    QTY --> JOINT["Joint allowance (J) in mm"]:::input
+    JOINT --> PLY["Number of ply - 3 / 5 / 7 / 9"]:::input
   end
 
-  PLY --> STACK["Build the layer stack - alternating liner and flute layers<br/>3p L-F-L - 5p L-F-L-F-L - 7p and 9p extend the pattern<br/>each flute layer keeps its own flute type A C B E N<br/>so mixed-flute multi-wall boards work too"]:::computed
+  PLY --> STACK["Build layer stack - alternating liner and flute layers<br/>3p: L-F-L | 5p: L-F-L-F-L | 7p & 9p extend pattern<br/>Each flute layer maintains its own flute type (B, C, E, etc.)"]:::computed
 
-  STACK --> SRC{"Per-layer data source?"}
-  SRC -->|"inventory module"| REEL["Per layer from its reel - GSM - BF<br/>price per kg - deckle mm - flute type"]:::borrowed
-  SRC -->|"manual entry"| MAN["Per layer typed - GSM - BF - price per kg<br/>flute type A C B E N on flute layers<br/>wastage pct - vendor extra pct"]:::input
+  STACK --> SCORE["Score tolerance (Tol in mm) from ply defaults<br/>3p: 6mm | 5p: 12mm | 7p: 18mm | 9p: 24mm<br/>(User can override per order)"]:::input
 
-  V{"Validate - dims 1 to 2000 mm - qty 1 to 100000<br/>GSM 100 to 400 - BF 16 to 40"}:::computed
-  REEL --> V
-  MAN --> V
-  V -->|"invalid"| ERR(["Show validation errors - fix and restart"])
-  ERR --> BT
+  SCORE --> S1["Sheet development for chosen box type<br/>• RSC (0201): Length = 2(L+W) + 4Tol + J | Width = W + H + 2Tol<br/>• HSC (0200): Length = 2(L+W) + 4Tol + J | Width = W/2 + H + Tol<br/>• FOL (0204): Length = 2(L+W) + 4Tol + J | Width = 2W + H + 2Tol<br/>• TEL (0320): Length = 2(L+2H+2Tol) | Width = W + 2H + 2Tol<br/>• FLD (0427): Length = 2L+2H+2Tol+J | Width = W + 2H + 2Tol"]:::computed
 
-  V -->|"valid"| SCORE["Score tolerance in mm - by ply ladder - not a per-layer value<br/>3p 6 - 5p 12 - 7p 18 - 9p 24<br/>admin-editable per BoxType"]:::computed
+  S1 --> S2["Sheet Area (m²)<br/>areaM2 = (blankLength × blankWidth) ÷ 1,000,000"]:::computed
 
-  SCORE --> TUF["Flute take-up factor per flute type<br/>A 1.55 - C 1.44 - B 1.33 - E 1.27<br/>supplier-overridable"]:::computed
-
-  TUF --> TGSM["Total GSM of the board<br/>totalGSM = sum of liner GSM + sum of flute GSM x takeUpFactor"]:::computed
-
-  TGSM --> S1["Sheet development for the chosen box type<br/>RSC slotted default - sheetLength = 2L + 2W + jointAllowance<br/>sheetWidth = H + W + scoreTolerance"]:::computed
-  S1 --> S1B["Other styles use their own die formula<br/>HSC bottom flaps only - FOL flaps H + 2W -<br/>Telescope 2 blanks lid + body - OPF wrap-around"]:::computed
-  S1B --> S2["Sheet area in m2 - summed over all blanks of the style<br/>1 blank for RSC HSC FOL OPF - 2 for Telescope lid + body<br/>areaM2 = sum of blankLength x blankWidth / 1e6"]:::computed
-
-  S2 --> LOOP["For each layer in the stack"]:::computed
-  LOOP --> WSRC{"Wastage pct for this layer?"}
-  WSRC -->|"inventory - deckle known"| WC["requires deckle >= layerSheetWidth - a narrower reel is rejected<br/>sheetsAcross = floor(deckle / layerSheetWidth)<br/>wastagePct = (1 - sheetsAcross x layerSheetWidth / deckle) x 100<br/>+ optional vendor process-waste pct"]:::computed
-  WSRC -->|"manual entry"| WM["wastagePct and vendorExtraPct as typed"]:::input
-
-  WC --> ROLE{"Layer role?"}
-  WM --> ROLE
-  ROLE -->|"liner"| LW["Used paper weight of the layer<br/>layerWeightKg = areaM2 x GSM / 1000"]:::computed
-  ROLE -->|"flute"| FW["layerWeightKg = areaM2 x GSM x takeUpFactor / 1000"]:::computed
-
-  LC["layerCost = layerWeightKg x pricePerKg<br/>x (1 + wastagePct / 100 + vendorExtraPct / 100)<br/>pcts divided by 100 e.g. 18 pct = 0.18"]:::computed
-  LW --> LC
-  FW --> LC
-
-  LC --> MORE{"More layers?"}
-  MORE -->|"yes"| LOOP
-
-  TERMS["Vendor terms - captured per quote - dynamic<br/>conversion rate Rs per kg - margin pct -<br/>tax pct - transport Rs"]:::input
-  MORE -->|"no"| TERMS
-  MORE -->|"no - all layer BF and GSM known"| BS
-
-  subgraph AGG["Box level rollup"]
-    PAPER["paperCostPerBox = sum of all layerCost<br/>all ply layers incl wastage and vendor extra"]:::computed
-    BW["boxWeightKg = sum of all layerWeightKg<br/>weight of 1 box - wastage NOT included"]:::computed
-    PAPER --> CPB
-    BW --> TW["totalWeightKg = boxWeightKg x quantity<br/>weight of the total quantity"]:::computed
-    BW --> CC["conversionCostPerBox = boxWeightKg x conversionRate<br/>vendor-supplied - required - no default D10"]:::computed
-    CC --> MARG["marginPerBox = (paperCostPerBox + conversionCostPerBox)<br/>x marginPct - margin sits at box level - D8"]:::computed
-    MARG --> CPB["costPerBox = paperCostPerBox + conversionCostPerBox + marginPerBox"]:::computed
-    CPB --> TC["totalCost = costPerBox x quantity"]:::computed
+  subgraph PH2["Phase 2 - Per-Ply Layer Calculation Loop"]
+    S2 --> LOOP["For each layer i = 1 to plyCount"]:::computed
+    
+    LOOP --> SRC{"Paper source?"}
+    SRC -->|"Reel inventory"| REEL["Pick closest matching reel<br/>auto-fills ₹/kg, GSM, BF"]:::borrowed
+    SRC -->|"Manual / Grade"| MAN["Input GSM, BF, ₹/kg<br/>Pick Paper Grade (optional)"]:::input
+    
+    REEL --> FL_CHK{"Is Flute Layer?"}
+    MAN --> FL_CHK
+    
+    FL_CHK -->|"Yes"| FL_IN["Select Flute Profile (B, C, E, etc.)<br/>Take-up factor F (e.g. 1.32)"]:::input
+    FL_CHK -->|"No (Liner)"| LN_IN["Take-up factor F = 1.00"]:::computed
+    
+    FL_IN --> CALC_PLY["<b>Layer Weight (kg)</b> = (areaM2 × GSM × F) ÷ 1,000<br/><b>Layer Cost (₹)</b> = Layer Weight (kg) × Rate (₹/kg)<br/><i>(Pure weight — NO per-layer wastage)</i>"]:::computed
+    LN_IN --> CALC_PLY
+    
+    CALC_PLY --> MORE{"More layers?"}
+    MORE -->|"Yes"| LOOP
   end
 
-  TERMS --> CC
-  TERMS --> MARG
+  MORE -->|"No"| AGG
 
-  TC --> FOP["finalOrderPrice = totalCost + transport"]:::computed
-  TERMS --> FOP
-  FOP --> TAX["tax = finalOrderPrice x taxPct<br/>GST indicative 12 pct - confirm with CA"]:::computed
-  TERMS --> TAX
-  TAX --> GT["grandTotal = finalOrderPrice + tax"]:::result
+  subgraph AGG["Phase 3 - Box Level Rollup & Overall Wastage"]
+    PAPER["Basic Paper Cost / Box (₹) = Σ Layer Cost"]:::computed
+    WASTE_IN["Overall Wastage % (e.g. 5%)"]:::input
+    WASTE_CALC["Wastage Amount (₹) = Paper Cost × (Wastage % ÷ 100)<br/>Paper Cost with Wastage (₹) = Paper Cost + Wastage Amount"]:::computed
+    
+    PAPER --> WASTE_CALC
+    WASTE_IN --> WASTE_CALC
+    
+    BW["Box Tare Weight (kg) = Σ Layer Weight (kg)<br/>+ starch weight allowance"]:::computed
+    BS["Bursting Strength (BS) = Σ (Layer BF × Layer GSM) ÷ 1,000"]:::result
+  end
 
-  BS["boardBS in kg per cm2 = sum of layerBF x layerGSM / 1000<br/>overall BS of the board - for display - indicative"]:::result
-  BS --> SHOW["Display breakdown - totalGSM - boxWeightKg - totalWeightKg -<br/>boardBS - costPerBox - grandTotal"]:::result
-  GT --> SHOW
-  SHOW --> OUT(["Quote ready - full breakdown returned"])
+  subgraph PH4["Phase 4 - Commercial Quotation & Order Pricing"]
+    CONV_IN["Conversion Rate (₹ per box)"]:::input
+    MARG_IN["Profit Margin (%)"]:::input
+    
+    BASE["Base Cost / Box (₹) = Paper with Wastage + Conversion Rate"]:::computed
+    MARG_CALC["Cost per Box with Margin (₹) = Base Cost × (1 + Margin % ÷ 100)"]:::computed
+    
+    WASTE_CALC --> BASE
+    CONV_IN --> BASE
+    BASE --> MARG_CALC
+    MARG_IN --> MARG_CALC
+    
+    TOT_PCS["Total Pcs Cost (₹) = Cost per Box with Margin × Quantity (Q)"]:::computed
+    MARG_CALC --> TOT_PCS
+    
+    DISC_IN["Order Discount (%)"]:::input
+    DISC_CALC["Total After Discount (₹) = Total Pcs Cost − (Total Pcs Cost × Discount %)"]:::computed
+    
+    TOT_PCS --> DISC_CALC
+    DISC_IN --> DISC_CALC
+    
+    TRANS_IN["Transport Freight (₹)"]:::input
+    TAX_IN["Tax / GST (%)"]:::input
+    
+    TAXABLE["Taxable Subtotal (₹) = Total After Discount + Transport"]:::computed
+    DISC_CALC --> TAXABLE
+    TRANS_IN --> TAXABLE
+    
+    FINAL["GST Amount (₹) = Taxable Subtotal × (Tax % ÷ 100)<br/><b>FINAL ORDER PRICE (₹) = Taxable Subtotal + GST Amount</b>"]:::result
+    TAXABLE --> FINAL
+    TAX_IN --> FINAL
+  end
+
+  FINAL --> SHOW["Summary & Quotation Output Card<br/>• Sheet Size & Area<br/>• Box Weight & BS<br/>• Paper Cost, Wastage, Conversion<br/>• Final Order Price"]:::result
+  BS --> SHOW
+  BW --> SHOW
+  SHOW --> END(["Quote confirmed & Order saved"]):::result
 ```
-
-## Who provides what
-
-| Value | Source |
-|---|---|
-| Box type, inside dims L W H, quantity, joint allowance, number of ply | **User input** |
-| Per layer: GSM, BF, flute type, take-up factor, price per kg, deckle | **Inventory module** (the layer's reel) **or manual user entry** |
-| Score tolerance | By ply ladder (3p 6 / 5p 12 / 7p 18 / 9p 24), admin-editable — automatic |
-| Wastage % per layer | Computed from the layer reel's deckle (inventory mode) or typed (manual mode) |
-| Vendor extra %, conversion rate ₹/kg, margin %, tax %, transport | **Vendor terms** — captured per quote, dynamic (defaults from tenant settings) |
-| Everything else in the diagram | **Computed** by the engine |
-
-## Formula reference
-
-| # | Step | Formula |
-|---|---|---|
-| 1 | Sheet development (RSC family) | `sheetLength = 2L + 2W + jointAllowance` · `sheetWidth = H + W + scoreTolerance(ply)` |
-| 2 | Sheet area | `areaM2 = Σ over blanks of the style (blankLength × blankWidth ÷ 1,000,000)` — 1 blank for RSC/HSC/FOL/OPF, 2 for Telescope |
-| 3 | Layer weight — liner | `layerWeightKg = areaM2 × GSM ÷ 1000` |
-| 4 | Layer weight — flute | `layerWeightKg = areaM2 × GSM × takeUpFactor ÷ 1000` |
-| 5 | Wastage % per layer (inventory mode) | requires `deckle ≥ layerSheetWidth` (a narrower reel is rejected) · `sheetsAcross = floor(deckle ÷ layerSheetWidth)` · `wastagePct = (1 − sheetsAcross × layerSheetWidth ÷ deckle) × 100` |
-| 6 | Layer cost | `layerCost = layerWeightKg × pricePerKg × (1 + wastagePct ÷ 100 + vendorExtraPct ÷ 100)` — percentages divided by 100 |
-| 7 | Total GSM | `totalGSM = Σ linerGSM + Σ (fluteGSM × takeUpFactor)` |
-| 8 | Paper cost per box | `paperCostPerBox = Σ layerCost` |
-| 9 | Weight of 1 box | `boxWeightKg = Σ layerWeightKg` — wastage **not** included |
-| 10 | Weight of total quantity | `totalWeightKg = boxWeightKg × quantity` |
-| 11 | Conversion cost per box | `conversionCostPerBox = boxWeightKg × conversionRate` (₹/kg, vendor-supplied — D10) |
-| 12 | Margin per box | `marginPerBox = (paperCostPerBox + conversionCostPerBox) × marginPct` (D8) |
-| 13 | Cost per box | `costPerBox = paperCostPerBox + conversionCostPerBox + marginPerBox` |
-| 14 | Total cost | `totalCost = costPerBox × quantity` |
-| 15 | Final order price | `finalOrderPrice = totalCost + transport` |
-| 16 | Tax | `tax = finalOrderPrice × taxPct` · `grandTotal = finalOrderPrice + tax` |
-| 17 | Board BS (display) | `boardBS = Σ (layerBF × layerGSM) ÷ 1000` kg/cm² |
-
-## Review pass — issues found in v1.0 and corrected
-
-1. **Margin formula ambiguity** — the box-level node read `paperCost +
-   conversionCost × marginPct`, which parses as margin on conversion cost
-   only. Parenthesised to `(paperCost + conversionCost) × marginPct` (D8).
-2. **Percentage unit mismatch** — the deckle-offcut formula produced a
-   percent (×100) while the layer-cost formula consumed a fraction. The cost
-   formula now divides by 100 explicitly, so the units match end to end.
-3. **Board BS node was orphaned** — it had no inbound edge, so it rendered
-   disconnected. Wired from the end of the per-layer loop, where every
-   layer's BF and GSM are known.
-4. **Manual-entry path lacked flute type** — without it no take-up factor
-   can be applied to flute layers. Added to the manual per-layer fields.
-5. **Multi-blank styles** — sheet area assumed a single blank. Now summed
-   over all blanks of the style (2 for Telescope lid + body).
-6. **Narrow-reel guard** — with `deckle < layerSheetWidth` the offcut
-   formula silently yields 100% waste; now an explicit rejection condition.
-
-## Fixes applied to the dictated flow
-
-1. **Score tolerance is not a per-layer value.** It comes from the ply-count
-   ladder (6/12/18/24 mm) and is used once — in the sheet width — not per
-   layer.
-2. **Total GSM needs the take-up rule.** "Find total GSM" alone is ambiguous:
-   flute layers count at `GSM × takeUpFactor`, liners at plain GSM.
-3. **"Used paper layer weight" split by role.** Flute layers consume
-   `GSM × takeUpFactor` worth of paper (the corrugating medium uses more
-   paper than the flat sheet it becomes); liners do not.
-4. **Box weight excludes wastage.** Wastage is extra paper *consumed* (it
-   belongs in cost only). Weight of 1 box and of the total quantity use the
-   actual board weight, otherwise the conversion cost and displayed weights
-   would be inflated.
-5. **Wastage % is computed, not fixed** (D9): derived from the layer reel's
-   deckle offcut when inventory data is used; typed by hand only in manual
-   mode, together with the optional vendor extra %.
-6. **Tax order fixed.** Same three components as dictated (total + tax +
-   transport), but in the canonical PRD §5 order: transport is added first,
-   then tax applies on `totalCost + transport` → grandTotal.
-7. **The "//dynamic" part made explicit.** Conversion rate (₹/kg,
-   vendor-supplied, no system default — D10), margin %, tax % and transport
-   are vendor terms captured per quote; margin base = paper + conversion,
-   applied per box (D8).
-8. **Made to work for all corrugated boxes.** Sheet development is chosen by
-   box type (RSC formula shown; HSC / FOL / Telescope / OPF use their own die
-   formulas), and the per-layer loop handles any ply count and any flute mix
-   because each flute layer carries its own take-up factor.
-9. **BF affects only the BS display.** Bursting strength is a strength metric
-   for the breakdown UI (`Σ BF × GSM ÷ 1000`); it does not enter the price.
-10. **Validation step added** (dims 1–2000 mm, qty 1–100000, GSM 100–400,
-    BF 16–40) before any costing, with an explicit error path back to the
-    form.
 
 ---
 
-*Paste the mermaid block into mermaid.live, GitHub, Notion, or VS Code (Mermaid extension) to render.*
+## Who Provides What
+
+| Parameter | Source | Notes |
+|---|---|---|
+| **Box Type, Dims (L, W, H), Quantity, Joint** | **User Input** | Entered at top of page; units switchable (mm / inch). |
+| **Number of Plies** | **User Input** | 3, 5, 7, or 9 ply. |
+| **Score Tolerance (Tol)** | **System Default / User Override** | Defaults loaded per ply count from DB (3p: 6mm, 5p: 12mm, 7p: 18mm, 9p: 24mm). |
+| **Per Layer: GSM, BF, Rate (₹/kg)** | **Manual Input or Inventory Match** | Selecting a reel auto-fills ₹/kg; Paper Grade auto-fills GSM & BF. |
+| **Flute Profile & Take-up (F)** | **System / User Selection** | Active on flute layers (B: 1.32, C: 1.42, etc.); Liners are fixed at 1.00. |
+| **Overall Wastage (%)** | **User / Vendor Input** | Applied once to total board paper cost (default 5%). Zero wastage added per layer. |
+| **Conversion Rate (₹/box)** | **Vendor Pricing Setting** | Fixed manufacturing rate per box (default ₹2/box). |
+| **Profit Margin (%)** | **Vendor Pricing Setting** | Company gross profit margin (default 10%). |
+| **Discount (%)** | **Order-Level Input** | Optional per-customer discount on box volume. |
+| **Transport (₹)** | **Order-Level Input** | Total order freight cost (e.g. ₹3,500). |
+| **Tax / GST (%)** | **Vendor Pricing Setting** | Applied on taxable subtotal (default 5%). |
+
+---
+
+## Formula Reference
+
+| # | Step | Exact Formula | Units |
+|---|---|---|---|
+| **1** | **Blank Length ($L_b$)** | • RSC/HSC/FOL: $2 \times (L + W) + 4\text{Tol} + J$<br/>• Telescope: $2 \times (L + 2H + 2\text{Tol})$<br/>• Folder: $2L + 2H + 2\text{Tol} + J$ | $mm$ |
+| **2** | **Blank Width ($W_b$)** | • RSC: $W + H + 2\text{Tol}$<br/>• HSC: $\frac{W}{2} + H + \text{Tol}$<br/>• FOL: $2W + H + 2\text{Tol}$<br/>• Telescope / Folder: $W + 2H + 2\text{Tol}$ | $mm$ |
+| **3** | **Sheet Area** | $\text{areaM2} = (L_b \times W_b) \div 1,000,000$ | $m^2$ |
+| **4** | **Layer Weight** | $(\text{areaM2} \times \text{GSM} \times F) \div 1,000$ *(where $F = 1.0$ for liner, flute take-up for flute)* | $kg\text{ / box}$ |
+| **5** | **Layer Paper Cost** | $\text{Layer Weight (kg)} \times \text{Rate (₹/kg)}$ | $₹\text{ / box}$ |
+| **6** | **Basic Paper Cost / Box** | $\sum (\text{Layer Paper Cost of each ply})$ | $₹\text{ / box}$ |
+| **7** | **Overall Wastage** | $\text{Basic Paper Cost} \times (\text{Overall Wastage \%} \div 100)$ | $₹\text{ / box}$ |
+| **8** | **Paper with Wastage** | $\text{Basic Paper Cost} + \text{Overall Wastage Amount}$ | $₹\text{ / box}$ |
+| **9** | **Base Cost / Box** | $\text{Paper with Wastage} + \text{Conversion Rate (₹/box)}$ | $₹\text{ / box}$ |
+| **10**| **Cost with Margin** | $\text{Base Cost / Box} \times (1 + \text{Margin \%} \div 100)$ | $₹\text{ / box}$ |
+| **11**| **Total Pcs Cost** | $\text{Cost with Margin} \times \text{Quantity (Q)}$ | $₹$ |
+| **12**| **Total After Discount** | $\text{Total Pcs Cost} \times (1 - \text{Discount \%} \div 100)$ | $₹$ |
+| **13**| **Taxable Subtotal** | $\text{Total After Discount} + \text{Transport Freight (₹)}$ | $₹$ |
+| **14**| **GST Amount** | $\text{Taxable Subtotal} \times (\text{Tax \%} \div 100)$ | $₹$ |
+| **15**| **Final Order Price** | $\mathbf{\text{Taxable Subtotal} + \text{GST Amount}}$ | $\mathbf{₹}$ |
+| **16**| **Bursting Strength (BS)**| $\sum (\text{Layer BF} \times \text{Layer GSM}) \div 1,000$ *(Liners: $1.0\times$, Flutes: $0.8\times$)* | $kg/cm^2$ |
