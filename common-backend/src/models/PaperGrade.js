@@ -21,6 +21,9 @@ const paperGradeSchema = new mongoose.Schema(
     }, // e.g. "Virgin Kraft", "Semi-Kraft", "Test Liner"
     gsm: { type: Number, required: true },
     bf: { type: Number, required: true },
+    price: { type: Number, default: 0 }, // default price per kg in ₹
+    flute: { type: String, default: "B" }, // default flute profile for flute layers
+    takeUp: { type: Number, default: 1.32 }, // default flute take-up factor
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,

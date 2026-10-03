@@ -309,17 +309,17 @@ export default function Page() {
   const [orderDiscount, setOrderDiscount] = useState(0); // per-order discount %, never saved to quotation schema
   const [plies, setPlies] = useState(() => samplePlies(5));
   const [tab, setTab] = useState("flute");
-  const [tolAll, setTolAll] = useState(0);
+  const [tolAll, setTolAll] = useState(() => TOL[5] || 12);
   const [dialog, setDialog] = useState(null); // {kind:'flute'|'reel'|'paper', edit}
   const [dialogErr, setDialogErr] = useState("");
   const [fluteForm, setFluteForm] = useState({ n: "", f: "", th: "", d: "" });
   const [reelForm, setReelForm] = useState({ w: "", g: "", b: "", p: "", s: "", pg: "" });
-  const [paperForm, setPaperForm] = useState({ n: "", g: "", b: "" });
+  const [paperForm, setPaperForm] = useState({ n: "", g: "", b: "", p: "", fl: "B", tu: "1.32" });
   const [fluteRows, setFluteRows] = useState([]);
   const [paperRows, setPaperRows] = useState([]);
   const [reels, setReels] = useState([]);
-  const [tolRows, setTolRows] = useState({});
-  const [savedTolRows, setSavedTolRows] = useState({});
+  const [tolRows, setTolRows] = useState(() => ({ ...TOL }));
+  const [savedTolRows, setSavedTolRows] = useState(() => ({ ...TOL }));
   const [reelSearch, setReelSearch] = useState("");
   const displayReels = useMemo(() => {
     if (!reelSearch.trim()) return reels;
@@ -340,15 +340,11 @@ export default function Page() {
   const setPlyCount = n => {
     setPly(n);
     setPlies(old => samplePlies(n).map((p, i) => old[i] || p));
-    setTolAll(tolRows[n] || 0);
+    const nextTol = tolRows[n] ?? tolRows[String(n)] ?? TOL[n] ?? 12;
+    setTolAll(Number(nextTol));
   };
   const setCell = (i, k) => e =>
-    setPlies(old => old.map((p, j) => {
-      if (j !== i) return p;
-      const res = { ...p, [k]: e.target.value };
-      if (k === "gsm" || k === "bf") res.paperName = "";
-      return res;
-    }));
+    setPlies(old => old.map((p, j) => (j === i ? { ...p, [k]: e.target.value } : p)));
 
   const [savingTol, setSavingTol] = useState(null);
   const [savedTol, setSavedTol] = useState(null);
@@ -501,11 +497,14 @@ export default function Page() {
       }
       const paper = paperRows.find(r => r.name === paperName);
       if (paper) {
+        const isFlute = role(i) === "flute";
         return {
           ...p,
           paperName: paper.name,
           gsm: String(paper.gsm),
           bf: String(paper.bf),
+          price: paper.price !== undefined && paper.price !== null && paper.price !== "" ? String(paper.price) : p.price,
+          flute: isFlute ? (paper.flute || p.flute || "B") : p.flute,
         };
       }
       return { ...p, paperName };
@@ -555,11 +554,18 @@ export default function Page() {
     setDialog({ kind: "reel", edit: k, plyIndex });
   };
 
-  const openPaper = (k = null) => {
-    const x = k == null ? { name: "", gsm: "", bf: "" } : paperRows.find(p => String(p._id) === String(k));
-    setPaperForm({ n: x ? x.name : "", g: x ? x.gsm : "", b: x ? x.bf : "" });
+  const openPaper = (k = null, plyIndex = null) => {
+    const x = k == null ? { name: "", gsm: "", bf: "", price: "", flute: "B", takeUp: 1.32 } : paperRows.find(p => String(p._id) === String(k));
+    const targetPly = (plyIndex != null && plies[plyIndex]) ? plies[plyIndex] : null;
+    const initialN = x ? x.name : "";
+    const initialG = x ? x.gsm : (targetPly?.gsm || "");
+    const initialB = x ? x.bf : (targetPly?.bf || "");
+    const initialP = x ? (x.price ?? "") : (targetPly?.price || "");
+    const initialFl = x ? (x.flute || "B") : (targetPly?.flute || "B");
+    const initialTu = x ? (x.takeUp ?? "1.32") : "1.32";
+    setPaperForm({ n: initialN, g: initialG, b: initialB, p: initialP, fl: initialFl, tu: String(initialTu) });
     setDialogErr("");
-    setDialog({ kind: "paper", edit: k });
+    setDialog({ kind: "paper", edit: k, plyIndex });
   };
 
   const saveFlute = async () => {
@@ -639,6 +645,9 @@ export default function Page() {
       name: paperForm.n?.trim(),
       gsm: +paperForm.g || 0,
       bf: +paperForm.b || 0,
+      price: paperForm.p !== "" && !isNaN(Number(paperForm.p)) ? +paperForm.p : 0,
+      flute: paperForm.fl || "B",
+      takeUp: paperForm.tu !== "" && !isNaN(Number(paperForm.tu)) ? +paperForm.tu : 1.32,
     };
     if (!payload.name) return setDialogErr("Name is required");
     try {
@@ -648,6 +657,21 @@ export default function Page() {
       } else {
         const created = await createPaperGrade(payload);
         setPaperRows(old => [...old, created]);
+        if (dialog?.plyIndex !== null && dialog?.plyIndex !== undefined) {
+          const targetIdx = dialog.plyIndex;
+          const isFlute = role(targetIdx) === "flute";
+          setPlies(old => old.map((p, j) => {
+            if (j !== targetIdx) return p;
+            return {
+              ...p,
+              paperName: created.name,
+              gsm: created.gsm ? String(created.gsm) : p.gsm,
+              bf: created.bf ? String(created.bf) : p.bf,
+              price: created.price !== undefined && created.price !== null ? String(created.price) : p.price,
+              flute: isFlute ? (created.flute || p.flute || "B") : p.flute,
+            };
+          }));
+        }
       }
       setDialog(null);
     } catch (err) {
@@ -776,10 +800,12 @@ export default function Page() {
         }
 
         let liveTols = {};
-        if (tolRes.status === "fulfilled" && tolRes.value && typeof tolRes.value === "object") {
+        if (tolRes.status === "fulfilled" && tolRes.value && typeof tolRes.value === "object" && Object.keys(tolRes.value).length > 0) {
           liveTols = tolRes.value;
           setTolRows(liveTols);
           setSavedTolRows(liveTols);
+          const currentPlyTol = liveTols[ply] ?? liveTols[String(ply)] ?? TOL[ply] ?? 12;
+          setTolAll(Number(currentPlyTol));
         }
 
         if (paperRes.status === "fulfilled" && Array.isArray(paperRes.value)) {
@@ -1476,7 +1502,18 @@ export default function Page() {
                   <tr key={i}>
                     <td>{i + 1} {role(i) === "liner" ? "Liner" : "Flute"}</td>
                     <td>
-                      <select value={p.paperName || ""} onChange={setPaper(i)} style={{ width: 140 }}>
+                      <select
+                        value={p.paperName || ""}
+                        onChange={e => {
+                          if (e.target.value === "__new_paper__") {
+                            openPaper(null, i);
+                            return;
+                          }
+                          setPaper(i)(e);
+                        }}
+                        style={{ width: 140 }}
+                      >
+                        <option value="__new_paper__">+ New paper grade</option>
                         <option value="">— pick a grade —</option>
                         {paperRows.map(pr => (
                           <option key={pr.name} value={pr.name}>{pr.name}</option>
@@ -1794,7 +1831,7 @@ export default function Page() {
           {tab === "paper" && (
             <div role="tabpanel">
               <div className="row" style={{ alignItems: "center", marginBottom: 10 }}>
-                <p className="note" style={{ flex: 1, margin: 0 }}>Default paper grades used to auto-fill GSM and BF.</p>
+                <p className="note" style={{ flex: 1, margin: 0 }}>Default paper grades used to auto-fill GSM, BF, and price per kg.</p>
                 <button type="button" style={{ flex: "none" }} onClick={askConfirm("paper-reset", async () => {
                   const res = await resetPaperGradesApi();
                   setPaperRows(res || []);
@@ -1803,12 +1840,12 @@ export default function Page() {
                 <button type="button" className={paperSel.size ? "danger" : ""} style={{ flex: "none" }} disabled={!paperSel.size} onClick={askConfirm("paper-del-bulk", delSelPapers, paperSel.size)}>{`Delete selected (${paperSel.size})`}</button>
                 <button type="button" className="pri" style={{ flex: "none" }} onClick={() => openPaper()}>+ Add paper grade</button>
               </div>
-              <div className="scroll"><table style={{ minWidth: 400 }}>
-                <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select all paper grades" checked={paperRows.length > 0 && paperSel.size === paperRows.length} onChange={e => setPaperSel(new Set(e.target.checked ? paperRows.map(p => String(p._id)) : []))} /></th><th>Paper Type</th><th>GSM</th><th>BF</th><th></th></tr></thead>
+              <div className="scroll"><table style={{ minWidth: 520 }}>
+                <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select all paper grades" checked={paperRows.length > 0 && paperSel.size === paperRows.length} onChange={e => setPaperSel(new Set(e.target.checked ? paperRows.map(p => String(p._id)) : []))} /></th><th>Paper Type</th><th>GSM</th><th>BF</th><th>Price per kg (₹)</th><th>Default Flute</th><th></th></tr></thead>
                 <tbody>
                   {paperRows.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: "center", padding: "28px 16px", color: "var(--mute)", fontSize: 13 }}>
+                      <td colSpan={7} style={{ textAlign: "center", padding: "28px 16px", color: "var(--mute)", fontSize: 13 }}>
                         No paper grades set. Click <strong>"Reset to default"</strong> to load standards.
                       </td>
                     </tr>
@@ -1819,6 +1856,8 @@ export default function Page() {
                         <td><b>{p.name}</b></td>
                         <td>{p.gsm}</td>
                         <td>{p.bf}</td>
+                        <td>{p.price !== undefined && p.price !== null ? `₹${p.price}` : "—"}</td>
+                        <td>{p.flute || "B"} (factor {Number(p.takeUp ?? 1.32).toFixed(2)})</td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <button type="button" style={{ padding: "4px 8px" }} onClick={() => openPaper(p._id)}>Edit</button>{" "}
                           <button type="button" style={{ padding: "4px 8px" }} onClick={askConfirm("paper-del", () => delPaper(p._id), 1)}>Delete</button>
@@ -1895,7 +1934,30 @@ export default function Page() {
             <label className="full">Paper Grade Name<input name="n" placeholder="e.g. Virgin Kraft" value={paperForm.n} onChange={set(paperForm, setPaperForm)} /></label>
             <label>GSM<input name="g" type="number" min="20" step="1" placeholder="e.g. 150" value={paperForm.g} onChange={set(paperForm, setPaperForm)} /></label>
             <label>BF<input name="b" type="number" min="1" step="1" placeholder="e.g. 24" value={paperForm.b} onChange={set(paperForm, setPaperForm)} /></label>
+            <label className="full">Price per kg (₹)<input name="p" type="number" min="0" step="0.5" placeholder="e.g. 38" value={paperForm.p} onChange={set(paperForm, setPaperForm)} /></label>
+            <label className="full">
+              Default Flute (for flute layers)
+              <select
+                name="fl"
+                value={paperForm.fl || "B"}
+                onChange={e => {
+                  const selFlute = fluteRows.find(f => f.n === e.target.value);
+                  setPaperForm(f => ({
+                    ...f,
+                    fl: e.target.value,
+                    tu: selFlute?.f ? String(selFlute.f) : (f.tu || "1.32"),
+                  }));
+                }}
+              >
+                {fluteRows.map(f => (
+                  <option key={f.n} value={f.n}>{f.n} · {Number(f.f).toFixed(2)} take-up</option>
+                ))}
+              </select>
+            </label>
           </div>
+          <p className="note" style={{ margin: "6px 0 0 0", fontSize: 11 }}>
+            When chosen on a <b>flute layer</b>, this flute profile will be auto-filled. <b>Liner layers</b> always use 1.00.
+          </p>
           {dialogErr && <div className="err" style={{ marginTop: 12, marginBottom: 0 }}>{dialogErr}</div>}
           <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
             <button type="button" style={{ flex: "none" }} onClick={() => setDialog(null)}>Cancel</button>

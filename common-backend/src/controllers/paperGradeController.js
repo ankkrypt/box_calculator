@@ -1,9 +1,9 @@
 const PaperGrade = require("../models/PaperGrade");
 
 const DEFAULT_PAPER_GRADES = [
-  { name: "Virgin Kraft", gsm: 180, bf: 28 },
-  { name: "Semi-Kraft", gsm: 150, bf: 24 },
-  { name: "Test Liner", gsm: 120, bf: 18 },
+  { name: "Virgin Kraft", gsm: 180, bf: 28, price: 44, flute: "B", takeUp: 1.32 },
+  { name: "Semi-Kraft", gsm: 150, bf: 24, price: 38, flute: "B", takeUp: 1.32 },
+  { name: "Test Liner", gsm: 120, bf: 18, price: 34, flute: "B", takeUp: 1.32 },
 ];
 
 /**
@@ -25,11 +25,11 @@ async function getPaperGrades(req, res, next) {
 async function createPaperGrade(req, res, next) {
   try {
     const vendorId = req.auth.vendorId;
-    const { name, gsm, bf } = req.body;
+    const { name, gsm, bf, price, flute, takeUp } = req.body;
 
     if (!name || !gsm || !bf) {
       return res.status(400).json({
-        error: { message: "All fields (name, gsm, bf) are required", status: 400 },
+        error: { message: "Fields (name, gsm, bf) are required", status: 400 },
       });
     }
 
@@ -38,6 +38,9 @@ async function createPaperGrade(req, res, next) {
       name: name.trim(),
       gsm: Number(gsm),
       bf: Number(bf),
+      price: price !== undefined && price !== null && price !== "" ? Number(price) : 0,
+      flute: flute ? flute.trim() : "B",
+      takeUp: takeUp !== undefined && takeUp !== null && takeUp !== "" ? Number(takeUp) : 1.32,
       createdBy: req.auth.userId,
       createdByType: req.auth.role,
     });
@@ -60,12 +63,15 @@ async function updatePaperGrade(req, res, next) {
   try {
     const vendorId = req.auth.vendorId;
     const { id } = req.params;
-    const { name, gsm, bf } = req.body;
+    const { name, gsm, bf, price, flute, takeUp } = req.body;
 
     const updates = {};
     if (name) updates.name = name.trim();
     if (gsm !== undefined) updates.gsm = Number(gsm);
     if (bf !== undefined) updates.bf = Number(bf);
+    if (price !== undefined) updates.price = price !== "" && !isNaN(Number(price)) ? Number(price) : 0;
+    if (flute !== undefined) updates.flute = flute.trim();
+    if (takeUp !== undefined) updates.takeUp = takeUp !== "" && !isNaN(Number(takeUp)) ? Number(takeUp) : 1.32;
 
     const paper = await PaperGrade.findOneAndUpdate(
       { _id: id, vendorId },
