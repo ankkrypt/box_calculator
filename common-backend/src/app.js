@@ -2,13 +2,11 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const rateLimit = require("express-rate-limit");
 
 const config = require("./config/env");
 const healthRouter = require("./routes/health");
-const vendorRoutes = require("./routes/vendorRoutes");
-const staffRoutes = require("./routes/staffRoutes");
-const vendorController = require("./controllers/vendorController");
+const authRoutes = require("./routes/authRoutes");
+const userController = require("./controllers/userController");
 const { notFound, errorHandler } = require("./middleware/error");
 
 const app = express();
@@ -49,17 +47,6 @@ app.use((req, res, next) => {
   next();
 });
 
-/* Basic in-memory rate limit (NFR-3; swap for Redis when scale demands). */
-app.use(
-  "/api",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 300,
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-  })
-);
-
 app.get("/", (_req, res) => {
   res.json({ name: "boxcalc-api", status: "ok" });
 });
@@ -70,20 +57,20 @@ const fluteRoutes = require("./routes/fluteRoutes");
 const toleranceRoutes = require("./routes/toleranceRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const paperRoutes = require("./routes/paperRoutes");
+const vendorCompanyRoutes = require("./routes/vendorCompanyRoutes");
 
 /* API Endpoints: MVC Auth Routes */
 app.use("/api/health", healthRouter);
-app.post("/api/auth/refresh", vendorController.refresh);
-app.post("/api/auth/logout", vendorController.logout);
-app.use("/api/auth/vendor", vendorRoutes);
-app.use("/api/vendor", vendorRoutes);
-app.use("/api/auth/staff", staffRoutes);
+app.post("/api/auth/refresh", userController.refresh);
+app.post("/api/auth/logout", userController.logout);
+app.use("/api/auth", authRoutes);
 app.use("/api/quotation", quotationRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reels", reelRoutes);
 app.use("/api/flutes", fluteRoutes);
 app.use("/api/tolerances", toleranceRoutes);
 app.use("/api/papers", paperRoutes);
+app.use("/api/vendor-company", vendorCompanyRoutes);
 
 /* 404 for unknown API routes, then the central error handler. */
 app.use(notFound);

@@ -52,8 +52,6 @@ async function updateTolerances(req, res, next) {
       {
         $set: {
           tolerances,
-          updatedBy: req.auth.userId,
-          updatedByType: req.auth.role,
         },
       },
       { new: true, upsert: true }
@@ -82,8 +80,6 @@ async function resetTolerances(req, res, next) {
       {
         $set: {
           tolerances: DEFAULT_TOLERANCES,
-          updatedBy: req.auth.userId,
-          updatedByType: req.auth.role,
         },
       },
       { new: true, upsert: true }

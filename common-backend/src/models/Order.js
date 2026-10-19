@@ -8,13 +8,12 @@ const mongoose = require("mongoose");
    - Board composition (ply, plies, flutes, tolerances, wastage)
    - Pricing configuration (conv, marg, tax, trans, discount)
    - Full calculated outputs (sheet area, blank size, weights, quote breakdown)
-   - Audit info: createdBy, createdByName, createdByType
    ========================================================================== */
 const orderSchema = new mongoose.Schema(
   {
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
       index: true,
     },
@@ -23,20 +22,6 @@ const orderSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
-    createdByName: {
-      type: String,
-      default: "",
-    },
-    createdByType: {
-      type: String,
-      enum: ["vendor", "staff"],
-      default: "vendor",
-    },
-
     /* Inside box dimensions & order volume */
     box: {
       type: { type: String, default: "rsc" },

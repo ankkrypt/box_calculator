@@ -55,7 +55,7 @@ function ResetPasswordForm() {
 
     setBusy(true);
     try {
-      await resetPasswordWithToken({ token, role, password });
+      await resetPasswordWithToken({ token, password });
       setSuccess(true);
     } catch (x) {
       setErr(x.message || "Failed to reset password. The link may have expired.");

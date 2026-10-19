@@ -10,7 +10,7 @@ const fluteSchema = new mongoose.Schema(
   {
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
       index: true,
     },
@@ -37,15 +37,6 @@ const fluteSchema = new mongoose.Schema(
       trim: true,
       default: "",
     }, // Description / typical use
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
-    createdByType: {
-      type: String,
-      enum: ["vendor", "staff"],
-      default: "vendor",
-    },
   },
   { timestamps: true }
 );

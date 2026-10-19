@@ -10,7 +10,7 @@ const scoreToleranceSchema = new mongoose.Schema(
   {
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
       unique: true,
       index: true,
@@ -24,14 +24,6 @@ const scoreToleranceSchema = new mongoose.Schema(
         "7": 18,
         "9": 24,
       }),
-    },
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-    },
-    updatedByType: {
-      type: String,
-      enum: ["vendor", "staff"],
-      default: "vendor",
     },
   },
   { timestamps: true }

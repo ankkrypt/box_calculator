@@ -157,9 +157,9 @@ export async function getCurrentUser() {
   return null;
 }
 
-/* Vendor Authentication */
-export async function loginVendor(email, password) {
-  const data = await api("/api/auth/vendor/login", {
+/* Unified Authentication */
+export async function login(email, password) {
+  const data = await api("/api/auth/login", {
     method: "POST",
     body: { email, password },
   });
@@ -168,8 +168,8 @@ export async function loginVendor(email, password) {
   return data.user;
 }
 
-export async function signupVendor(payload) {
-  const data = await api("/api/auth/vendor/signup", {
+export async function signup(payload) {
+  const data = await api("/api/auth/user/signup", {
     method: "POST",
     body: payload,
   });
@@ -178,47 +178,43 @@ export async function signupVendor(payload) {
   return data.user;
 }
 
-/* Staff Authentication */
-export async function loginStaff(email, password) {
-  const data = await api("/api/auth/staff/login", {
-    method: "POST",
-    body: { email, password },
-  });
-  setToken(data.accessToken);
-  setStoredUser(data.user);
-  return data.user;
-}
-
-/* Password Reset Flows */
-export async function forgotPassword(email, role = "vendor") {
-  return api(`/api/auth/${role}/forgot-password`, {
+/* Password Reset Flows
+   The backend's forgot-password and reset-password-token endpoints default to
+   the vendor flow when no role is sent, which is exactly what this app uses
+   (staff accounts are invited, not self-registered, and never use the
+   forgot-password UI). So these helpers no longer pass a role at all.
+   These stay at /api/auth (shared auth flows), not under /user. */
+export async function forgotPassword(email) {
+  return api("/api/auth/forgot-password", {
     method: "POST",
     body: { email },
   });
 }
 
-export async function resetPasswordWithToken({ token, role = "vendor", password }) {
-  return api(`/api/auth/${role}/reset-password-token`, {
+export async function resetPasswordWithToken({ token, password }) {
+  return api("/api/auth/reset-password-token", {
     method: "POST",
     body: { token, password },
   });
 }
 
-/* Staff Management (Vendor Only) */
+/* User-account management
+   All User-account operations now live under /api/auth/user. Staff management
+   is still vendor-only (gated in the backend via requireRole("vendor")). */
 export async function inviteStaff({ email, name }) {
-  return api("/api/auth/vendor/invite-staff", {
+  return api("/api/auth/user/invite-staff", {
     method: "POST",
     body: { email, name },
   });
 }
 
 export async function getStaffList() {
-  const data = await api("/api/auth/vendor/staff");
+  const data = await api("/api/auth/user/staff");
   return data?.staff || [];
 }
 
 export async function removeStaff(id) {
-  return api(`/api/auth/vendor/remove-staff/${id}`, {
+  return api(`/api/auth/user/remove-staff/${id}`, {
     method: "DELETE",
   });
 }
@@ -233,15 +229,6 @@ export async function updateQuotation({ conversion, profitMargin, tax, discount,
     method: "PUT",
     body: { conversion, profitMargin, tax, discount, conv, marg },
   });
-}
-
-// Aliases for compatibility
-export async function getVendorPricingSettings() {
-  return getQuotation();
-}
-
-export async function updateVendorPricingSettings(payload) {
-  return updateQuotation(payload);
 }
 
 /* Packaging Calculation Engine */

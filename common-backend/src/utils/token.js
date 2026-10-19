@@ -3,12 +3,23 @@ const crypto = require("crypto");
 const config = require("../config/env");
 
 /* Signs a short-lived access token JWT */
-function signAccessToken({ userId, role, vendorId, plan }) {
-  return jwt.sign(
-    { userId: String(userId), role, vendorId: String(vendorId), plan: plan || "free" },
-    config.jwt.secret,
-    { expiresIn: config.jwt.accessExpiresIn }
-  );
+function signAccessToken({ userId, role, vendorId, plan, permissions }) {
+  const payload = {
+    userId: String(userId),
+    role,
+    vendorId: String(vendorId),
+    plan: plan || "free",
+  };
+
+  // Include permissions in the JWT for route-level permission checks.
+  // Staff users get their per-schema CRUD permissions embedded here so
+  // requirePermission() middleware can validate access without
+  // fetching the user again from the database.
+  if (permissions && typeof permissions === "object") {
+    payload.permissions = permissions;
+  }
+
+  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.accessExpiresIn });
 }
 
 /* Verifies access token JWT signature and expiration */

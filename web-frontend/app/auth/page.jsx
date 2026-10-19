@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  loginVendor,
-  loginStaff,
-  signupVendor,
+  login,
+  signup,
   forgotPassword,
   getCurrentUser,
   getStoredUser,
@@ -34,7 +33,6 @@ function EyeIcon({ visible }) {
 export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState("login"); // "login" | "signup"
-  const [role, setRole] = useState("vendor"); // "vendor" | "staff"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -72,12 +70,6 @@ export default function AuthPage() {
     setPassword("");
   }
 
-  function switchRole(newRole) {
-    setRole(newRole);
-    setErr("");
-    setPassword("");
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setBusy(true);
@@ -85,13 +77,9 @@ export default function AuthPage() {
 
     try {
       if (mode === "login") {
-        if (role === "vendor") {
-          await loginVendor(email.trim(), password);
-        } else {
-          await loginStaff(email.trim(), password);
-        }
+        await login(email.trim(), password);
       } else {
-        await signupVendor({
+        await signup({
           name: name.trim(),
           vendorName: vendorName.trim(),
           email: email.trim(),
@@ -114,7 +102,7 @@ export default function AuthPage() {
     setForgotUrl("");
 
     try {
-      const res = await forgotPassword(forgotEmail.trim(), role);
+      const res = await forgotPassword(forgotEmail.trim());
       setForgotMsg(res.message || "Reset link sent!");
       if (res.resetUrl) setForgotUrl(res.resetUrl);
     } catch (x) {
@@ -133,7 +121,7 @@ export default function AuthPage() {
         <div className="card authcard">
           <h2>Reset Password</h2>
           <p className="note">
-            Enter your {role} email address below. We will send a secure link to reset your password.
+            Enter your email address below. We will send a secure link to reset your password.
           </p>
 
           {forgotMsg ? (
@@ -167,8 +155,8 @@ export default function AuthPage() {
           ) : (
             <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <label>
-                {role === "vendor" ? "Vendor Email" : "Staff Email"}
-                <input
+              Vendor Email
+              <input
                   type="email"
                   required
                   value={forgotEmail}
@@ -218,26 +206,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Login Mode: Sub-Tabs for Vendor vs Staff */}
-          {mode === "login" && (
-            <div className="subtabs">
-              <button
-                type="button"
-                className={`subtab ${role === "vendor" ? "active" : ""}`}
-                onClick={() => switchRole("vendor")}
-              >
-                Vendor
-              </button>
-              <button
-                type="button"
-                className={`subtab ${role === "staff" ? "active" : ""}`}
-                onClick={() => switchRole("staff")}
-              >
-                Staff
-              </button>
-            </div>
-          )}
-
           {/* Form */}
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {mode === "signup" && (
@@ -265,7 +233,7 @@ export default function AuthPage() {
               </>
             )}
 
-            <label>
+            <label style={{ marginBottom: "6px" }}>
               Email
               <input
                 type="email"
@@ -277,54 +245,46 @@ export default function AuthPage() {
               />
             </label>
 
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                <label style={{ margin: 0 }}>
-                  Password {mode === "signup" && <span className="note">(min 8 characters)</span>}
-                </label>
-                {mode === "login" && (
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => {
-                      setForgotEmail(email);
-                      setShowForgot(true);
-                      setForgotMsg("");
-                      setForgotUrl("");
-                      setErr("");
-                    }}
-                  >
-                    Forgot password?
-                  </button>
-                )}
-              </div>
+            <label style={{ marginBottom: "6px" }}>
+              Password {mode === "signup" && <span className="note">(min 8 characters)</span>}
+            </label>
 
-              <div className="pwd-wrap">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  minLength={mode === "signup" ? 8 : undefined}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                />
-                <button
-                  type="button"
-                  className="pwd-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  title={showPassword ? "Hide password" : "Show password"}
-                >
-                  <EyeIcon visible={showPassword} />
-                </button>
-              </div>
+            <div className="pwd-wrap">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={mode === "signup" ? 8 : undefined}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              />
+              <button
+                type="button"
+                className="pwd-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                <EyeIcon visible={showPassword} />
+              </button>
             </div>
 
-            {mode === "login" && role === "staff" && (
-              <p className="note">
-                Invited staff: your initial password is your invited email address.
-              </p>
+            {mode === "login" && (
+              <button
+                type="button"
+                className="link-btn"
+                style={{ alignSelf: "flex-start" }}
+                onClick={() => {
+                  setForgotEmail(email);
+                  setShowForgot(true);
+                  setForgotMsg("");
+                  setForgotUrl("");
+                  setErr("");
+                }}
+              >
+                Forgot password?
+              </button>
             )}
 
             {mode === "signup" && (
@@ -336,7 +296,7 @@ export default function AuthPage() {
             <p className="err">{err}</p>
 
             <button className="pri" type="submit" disabled={busy}>
-              {busy ? "Please wait…" : mode === "login" ? `Log in as ${role}` : "Create Vendor Account"}
+              {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create Vendor Account"}
             </button>
           </form>
         </div>

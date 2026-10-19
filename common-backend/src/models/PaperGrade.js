@@ -10,7 +10,7 @@ const paperGradeSchema = new mongoose.Schema(
   {
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
       index: true,
     },
@@ -24,15 +24,6 @@ const paperGradeSchema = new mongoose.Schema(
     price: { type: Number, default: 0 }, // default price per kg in ₹
     flute: { type: String, default: "B" }, // default flute profile for flute layers
     takeUp: { type: Number, default: 1.32 }, // default flute take-up factor
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
-    createdByType: {
-      type: String,
-      enum: ["vendor", "staff"],
-      default: "vendor",
-    },
   },
   { timestamps: true }
 );

@@ -13,7 +13,7 @@ const quotationSchema = new mongoose.Schema(
   {
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
       required: true,
       unique: true,
       index: true,
