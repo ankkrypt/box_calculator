@@ -196,8 +196,6 @@ async function signup(req, res, next) {
     const initialFlutes = DEFAULT_FLUTES.map((f) => ({
       ...f,
       vendorId: vendor._id,
-      createdBy: vendor._id,
-      createdByType: "vendor",
     }));
     await Flute.insertMany(initialFlutes);
 
@@ -205,8 +203,6 @@ async function signup(req, res, next) {
     const initialPapers = DEFAULT_PAPER_GRADES.map((p) => ({
       ...p,
       vendorId: vendor._id,
-      createdBy: vendor._id,
-      createdByType: "vendor",
     }));
     await PaperGrade.insertMany(initialPapers);
 

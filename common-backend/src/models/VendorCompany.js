@@ -40,10 +40,6 @@ const vendorCompanySchema = new mongoose.Schema(
       maxlength: 40,
       default: "",
     },
-    /* createdBy and createdByType were audit fields kept from the original
-     * model conventions. They are not needed for the VendorCompany schema
-     * (the vendor identity is tracked via vendorId on the User document),
-     * so they are removed to keep the schema lean. */
   },
   { timestamps: true }
 );

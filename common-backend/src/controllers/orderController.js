@@ -73,9 +73,6 @@ async function createOrder(req, res, next) {
     const newOrder = await Order.create({
       vendorId,
       orderNumber,
-      createdBy: req.auth.userId,
-      createdByName: req.auth.name || (req.auth.role === "vendor" ? "Vendor Owner" : "Staff Member"),
-      createdByType: req.auth.role || "vendor",
       box: {
         type: boxData.type || "rsc",
         L: Number(boxData.L) || 400,

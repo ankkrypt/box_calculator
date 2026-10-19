@@ -332,7 +332,7 @@ BoxType { tenantId, standardId: rsc|hsc|fol|telescope|opf,
 
 **Quote**
 ```
-Quote { tenantId, number, status, createdBy, boxTypeId,
+Quote { tenantId, number, status, boxTypeId,
         dims{ L, W, H }, quantity,
         layers[ {role, reelId, gsm, bf, takeUp, pricePerKg, computedWastePct} ],
         sheet{ lengthMm, widthMm }, areaM2, totalGsm, perLayerCosts[], paperCostPerBox,

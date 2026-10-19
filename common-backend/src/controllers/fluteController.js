@@ -49,8 +49,6 @@ async function createFlute(req, res, next) {
       f: Number(f),
       th: th?.trim() || "",
       d: d?.trim() || "",
-      createdBy: req.auth.userId,
-      createdByType: req.auth.role,
     });
 
     return res.status(201).json({ ok: true, flute });
@@ -162,8 +160,6 @@ async function resetFlutes(req, res, next) {
     const toInsert = DEFAULT_FLUTES.map((f) => ({
       ...f,
       vendorId,
-      createdBy: req.auth.userId,
-      createdByType: req.auth.role,
     }));
 
     const flutes = await Flute.insertMany(toInsert);

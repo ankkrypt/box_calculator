@@ -96,10 +96,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/* Accept `password` on create/save (strict mode ignores unknown paths, so it
-   must be a virtual) and funnel it into passwordHash before validation. */
-/* Validation runs after pre('validate') hooks — hash here so the `required`
-   check sees the final (hashed) value, and so only a hash is stored. */
+/* Hash passwords before they are stored. */
 userSchema.pre("save", async function hashPassword(next) {
   if (!this.isModified("password") || !this.password) return next();
   try {
@@ -114,15 +111,5 @@ userSchema.methods.verifyPassword = function verifyPassword(plain) {
   if (!this.password) return false;
   return bcrypt.compare(plain, this.password);
 };
-
-/* Convenience: the vendor _id this user belongs to.
-   - For vendors: themselves.
-   - For staff: their vendorId.
-   This keeps downstream code that previously did `vendor._id` / `staff.vendorId`
-   able to read `user.vendorIdentityId` without branching. */
-userSchema.virtual("vendorIdentityId").get(function () {
-  if (this.role === "vendor") return this._id;
-  return this.vendorId;
-});
 
 module.exports = mongoose.model("User", userSchema);

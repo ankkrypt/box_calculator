@@ -40,8 +40,6 @@ async function createReel(req, res, next) {
       shade: shade?.trim() || "Natural Kraft",
       paperGrade: paperGrade?.trim() || "",
       flute: flute?.trim() || "",
-      createdBy: req.auth.userId,
-      createdByType: req.auth.role,
     });
 
     return res.status(201).json({ ok: true, reel });

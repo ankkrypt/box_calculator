@@ -41,8 +41,6 @@ async function createPaperGrade(req, res, next) {
       price: price !== undefined && price !== null && price !== "" ? Number(price) : 0,
       flute: flute ? flute.trim() : "B",
       takeUp: takeUp !== undefined && takeUp !== null && takeUp !== "" ? Number(takeUp) : 1.32,
-      createdBy: req.auth.userId,
-      createdByType: req.auth.role,
     });
 
     return res.status(201).json({ ok: true, paper });
@@ -152,8 +150,6 @@ async function resetPaperGrades(req, res, next) {
     const toInsert = DEFAULT_PAPER_GRADES.map((p) => ({
       ...p,
       vendorId,
-      createdBy: req.auth.userId,
-      createdByType: req.auth.role,
     }));
 
     const papers = await PaperGrade.insertMany(toInsert);

@@ -2436,10 +2436,6 @@ export default function Page() {
                             <span style={{ color: "var(--mute)", display: "block" }}>Final Order Price</span>
                             <strong style={{ fontSize: "14px", color: "var(--fg)" }}>₹{fmtMoney(ord.finalOrderPrice)}</strong>
                           </div>
-                          <div>
-                            <span style={{ color: "var(--mute)", display: "block" }}>Confirmed by</span>
-                            <span>{ord.createdByName || "Vendor"} ({ord.createdByType || "vendor"})</span>
-                          </div>
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", borderTop: "1px solid var(--line-soft)", paddingTop: "8px" }}>
