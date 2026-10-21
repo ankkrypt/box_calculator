@@ -70,14 +70,6 @@ const userSchema = new mongoose.Schema(
       }, { _id: false }) },
     },
 
-    /* Reference to the shared company object (VendorCompany). */
-    vendorCompany: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "VendorCompany",
-      required: true,
-      index: true,
-    },
-
     /* Stored on staff records only. */
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,

@@ -63,9 +63,6 @@ async function issueVendorSession(user) {
     expiresAt,
   });
 
-  // Fetch the full VendorCompany object for the response
-  const company = await VendorCompany.findById(user.vendorCompany).select("-__v");
-
   return {
     accessToken,
     refreshToken: token,
@@ -73,13 +70,6 @@ async function issueVendorSession(user) {
       id: user._id,
       name: user.name,
       email: user.email,
-      vendorCompany: company ? {
-        id: company._id,
-        name: company.name,
-        address: company.address,
-        email: company.email,
-        contact: company.contact,
-      } : null,
       plan: user.plan || "free",
       role: "vendor",
     },
@@ -116,13 +106,13 @@ async function issueStaffSession(staff, vendor) {
 
   return {
     accessToken,
-    refreshToken: token,      user: {
+    refreshToken: token,
+    user: {
       id: staff._id,
       name: staff.name,
       email: staff.email,
       role: "staff",
       vendorId: staff.vendorId,
-      vendorCompany: vendor ? vendor.vendorCompany : null,
       plan: vendor ? vendor.plan || "free" : "free",
     },
   };
@@ -158,23 +148,19 @@ async function signup(req, res, next) {
       return res.status(409).json({ error: { message: "Email is already registered", status: 409 } });
     }
 
-    // 1. Create the VendorCompany object first
-    const company = await VendorCompany.create({
-      vendorId: null, // set after vendor is created
-      name: vendorName.trim(),
-    });
-
-    // 2. Create the vendor with the company reference
+    // 1. Create the vendor user first
     const vendor = await User.create({
       role: "vendor",
       name: name.trim(),
       email: normalizedEmail,
       password,
-      vendorCompany: company._id,
     });
 
-    // 3. Link the vendor reference back to the company
-    await VendorCompany.findByIdAndUpdate(company._id, { vendorId: vendor._id });
+    // 2. Create the VendorCompany linked to the vendor
+    await VendorCompany.create({
+      vendorId: vendor._id,
+      name: vendorName.trim(),
+    });
 
     // Bootstrap default configurations ONLY during signup:
     // 1. Default quotation rates
@@ -628,11 +614,11 @@ async function getMe(req, res, next) {
     }
 
     if (user.role === "staff") {
-      const vendor = await findVendorById(user.vendorId).select("vendorCompany plan");
+      const vendor = await findVendorById(user.vendorId).select("plan");
       return res.json({
         user: req.auth,
         staff: user,
-        vendor: vendor ? { vendorCompany: vendor.vendorCompany, plan: vendor.plan } : null,
+        vendor: vendor ? { plan: vendor.plan } : null,
       });
     }
 
