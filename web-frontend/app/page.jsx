@@ -40,6 +40,8 @@ import {
 import BoxPreview from "./BoxPreview";
 import DieChart from "./DieChart";
 import HourglassLoader from "./HourglassLoader";
+import Select from "../components/Select";
+import UnitSelect from "../components/UnitSelect";
 import { TOL, FLUTES, BOX_TYPES, role, samplePlies } from "./data";
 import { MM_PER_IN, toDisp, toMM, lenText, areaText, rangeDisp, rangeMM, unitLabel } from "./units";
 
@@ -85,15 +87,7 @@ const BOX_TYPE_DEFAULTS = {
   fld: { L: 450, W: 300, H: 80  },
 };
 
-/* mm/inch switch — shared, so the unit can be changed from any length field on the page. */
-function UnitSelect({ unit, onChange, label = "Unit", className = "" }) {
-  return (
-    <select aria-label={label} className={className} value={unit} onChange={e => onChange(e.target.value)}>
-      <option value="mm">mm</option>
-      <option value="inch">inch</option>
-    </select>
-  );
-}
+
 
 
 
@@ -1436,7 +1430,8 @@ export default function Page() {
           <p className="sub">Inside dimensions. Switch between mm and inch — values convert automatically.</p>
           <div className="og">
             <label className="full">Box type
-              <select
+              <Select
+                id="select-order-type"
                 name="type"
                 value={order.type}
                 onChange={e => {
@@ -1446,7 +1441,7 @@ export default function Page() {
                 }}
               >
                 {BOX_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              </Select>
             </label>
             {DIM_FIELDS.map(([k, label, minMM]) => (
               <label key={k}>{label}
@@ -1456,7 +1451,7 @@ export default function Page() {
                     name={k}
                     type="number"
                     inputMode="decimal"
-                    min={unit === "mm" ? minMM : +(minMM / MM_PER_IN).toFixed(2)}
+                    min={toDisp(minMM, unit)}
                     step={unit === "mm" ? "1" : "0.01"}
                     value={toDisp(order[k], unit)}
                     onChange={setDim(k)}
@@ -1465,13 +1460,16 @@ export default function Page() {
                 </div>
               </label>
             ))}
-            <label>Quantity<div className="unit"><input id="input-order-Q" name="Q" type="number" min="1" step="1" value={order.Q} onChange={set(order, setOrder)} /><span>pcs</span></div></label>
+            <label>Quantity<div className="unit"><input id="input-order-Q" name="Q" type="number" min="1" step="1" value={order.Q} onChange={set(order, setOrder)} /><span className="unit-tag">pcs</span></div></label>
             <label>Number of ply
-              <select id="select-order-ply" value={ply} onChange={e => setPlyCount(+e.target.value)}>
-                <option>3</option><option>5</option><option>7</option><option>9</option>
-              </select>
+              <Select id="select-order-ply" value={ply} onChange={e => setPlyCount(+e.target.value)}>
+                <option value="3">3 ply</option>
+                <option value="5">5 ply</option>
+                <option value="7">7 ply</option>
+                <option value="9">9 ply</option>
+              </Select>
             </label>
-            <label>Joint allowance<div className="unit has-select"><input id="input-order-J" name="J" type="number" min="0" step={unit === "inch" ? "0.01" : "1"} value={toDisp(order.J, unit)} onChange={setDim("J")} /><UnitSelect unit={unit} onChange={changeUnit} label="Joint allowance unit" /></div></label>
+            <label>Joint allowance<div className="unit has-select"><input id="input-order-J" name="J" type="number" min="0" step={unit === "mm" ? "1" : "0.01"} value={toDisp(order.J, unit)} onChange={setDim("J")} /><UnitSelect unit={unit} onChange={changeUnit} label="Joint allowance unit" /></div></label>
           </div>
         </div>
         <BoxPreview type={order.type} L={order.L} W={order.W} H={order.H} J={order.J} unit={unit} />
@@ -1501,7 +1499,7 @@ export default function Page() {
                   <tr key={i}>
                     <td>{i + 1} {role(i) === "liner" ? "Liner" : "Flute"}</td>
                     <td>
-                      <select
+                      <Select
                         value={p.paperName || ""}
                         onChange={e => {
                           if (e.target.value === "__new_paper__") {
@@ -1517,13 +1515,13 @@ export default function Page() {
                         {paperRows.map(pr => (
                           <option key={pr.name} value={pr.name}>{pr.name}</option>
                         ))}
-                      </select>
+                      </Select>
                     </td>
                     <td><input id={`ply-gsm-${i}`} type="number" min="60" step="1" value={p.gsm} style={{ width: 76 }} onChange={setCell(i, "gsm")} /></td>
                     <td><input id={`ply-bf-${i}`} type="number" min="10" step="1" value={p.bf} style={{ width: 64 }} onChange={setCell(i, "bf")} /></td>
                     <td>{role(i) === "flute"
                       ? (
-                        <select
+                        <Select
                           value={p.flute || "B"}
                           style={{ width: 140 }}
                           onChange={e => {
@@ -1535,17 +1533,17 @@ export default function Page() {
                           }}
                         >
                           {fluteOpts}
-                        </select>
+                        </Select>
                       )
                       : <span className="note">1.00 (liner)</span>}</td>
                     <td>
-                      <select
+                      <Select
                         value={p.reelId || ""}
                         style={{ minWidth: 260 }}
                         onChange={setReel(i)}
                       >
                         {reelOpts}
-                      </select>
+                      </Select>
                     </td>
                     <td>
                       <input
@@ -1569,8 +1567,8 @@ export default function Page() {
             </tbody>
           </table></div>
           <div className="row" style={{ marginTop: 14 }}>
-            <label style={{ maxWidth: 220 }}>Score tolerance (whole board)<div className="unit has-select"><input id="input-score-tol" type="number" min="0" step={unit === "inch" ? "0.01" : "1"} value={toDisp(tolAll, unit)} onChange={e => setTolAll(toMM(e.target.value, unit) || 0)} /><UnitSelect unit={unit} onChange={changeUnit} label="Score tolerance unit" /></div></label>
-            <label style={{ maxWidth: 220 }}>Overall Wastage<div className="unit"><input id="input-overall-wastage" name="extra" type="number" min="0" max="100" step="1" value={quote.extra} onChange={set(quote, setQuote)} /><span>%</span></div></label>
+            <label style={{ maxWidth: 220 }}>Score tolerance (whole board)<div className="unit has-select"><input id="input-score-tol" type="number" min="0" step={unit === "mm" ? "1" : "0.01"} value={toDisp(tolAll, unit)} onChange={e => setTolAll(toMM(e.target.value, unit) || 0)} /><UnitSelect unit={unit} onChange={changeUnit} label="Score tolerance unit" /></div></label>
+            <label style={{ maxWidth: 220 }}>Overall Wastage<div className="unit"><input id="input-overall-wastage" name="extra" type="number" min="0" max="100" step="1" value={quote.extra} onChange={set(quote, setQuote)} /><span className="unit-tag">%</span></div></label>
           </div>
         </div>
 
@@ -1757,7 +1755,7 @@ export default function Page() {
                     displayReels.map(r => (
                       <tr key={r.id || r._id}>
                         <td><input type="checkbox" aria-label={`Select reel ${r.w}`} checked={reelSel.has(r.id) || reelSel.has(r._id)} onChange={toggleSel(setReelSel)(r.id || r._id)} /></td>
-                        <td><input type="number" min={unit === "inch" ? "4" : "100"} step={unit === "inch" ? "0.01" : "1"} style={{ width: 100 }} aria-label={`Reel width in ${unitLabel(unit)}`} value={toDisp(r.w, unit)} onChange={setReelW(r.id || r._id)} onBlur={e => handleReelWBlur(r.id || r._id, toMM(e.target.value, unit))()} /></td><td style={{ color: "var(--mute)" }}>{r.paperGrade || "—"}</td><td>{r.gsm}</td><td>{r.bf}</td><td>₹{r.price}</td><td>{fmt(r.stock)}</td>
+                        <td><input type="number" min={toDisp(100, unit)} step={unit === "mm" ? "1" : "0.01"} style={{ width: 100 }} aria-label={`Reel width in ${unitLabel(unit)}`} value={toDisp(r.w, unit)} onChange={setReelW(r.id || r._id)} onBlur={e => handleReelWBlur(r.id || r._id, toMM(e.target.value, unit))()} /></td><td style={{ color: "var(--mute)" }}>{r.paperGrade || "—"}</td><td>{r.gsm}</td><td>{r.bf}</td><td>₹{r.price}</td><td>{fmt(r.stock)}</td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <button type="button" style={{ padding: "4px 8px" }} onClick={() => openReel(r.id || r._id)}>Edit</button>{" "}
                           <button type="button" style={{ padding: "4px 8px" }} onClick={() => delReel(r.id || r._id)}>Delete</button>
@@ -1801,7 +1799,7 @@ export default function Page() {
                               <input
                                 type="number"
                                 min="0"
-                                step={unit === "inch" ? "0.01" : "1"}
+                                step={unit === "mm" ? "1" : "0.01"}
                                 value={toDisp(tolRows[p], unit)}
                                 onChange={handleTolChange(p)}
                               />
@@ -1877,7 +1875,7 @@ export default function Page() {
           <div style={{ display: "grid", gap: 12 }}>
             <label>Flute name<input name="n" maxLength={12} placeholder="e.g. BC" value={fluteForm.n} onChange={set(fluteForm, setFluteForm)} /></label>
             <label>Take-up factor<input name="f" type="number" step="0.01" min="1" placeholder="e.g. 1.32" value={fluteForm.f} onChange={set(fluteForm, setFluteForm)} /></label>
-            <label>Thickness range (optional)<div className="unit has-select"><input name="th" placeholder={unit === "inch" ? "e.g. 0.10–0.12" : "e.g. 2.5–3.0"} value={rangeDisp(fluteForm.th, unit)} onChange={e => setFluteForm(f => ({ ...f, th: rangeMM(e.target.value, unit) }))} /><UnitSelect unit={unit} onChange={changeUnit} label="Flute thickness unit" /></div></label>
+            <label>Thickness range (optional)<div className="unit has-select"><input name="th" placeholder={unit === "inch" ? "e.g. 0.10–0.12" : (unit === "cm" ? "e.g. 0.25–0.30" : "e.g. 2.5–3.0")} value={rangeDisp(fluteForm.th, unit)} onChange={e => setFluteForm(f => ({ ...f, th: rangeMM(e.target.value, unit) }))} /><UnitSelect unit={unit} onChange={changeUnit} label="Flute thickness unit" /></div></label>
             <label>Description (optional)<textarea name="d" placeholder="What it is used for, so you can pick it faster next time" value={fluteForm.d} onChange={set(fluteForm, setFluteForm)} /></label>
           </div>
           {dialogErr && <div className="err" style={{ marginTop: 12, marginBottom: 0 }}>{dialogErr}</div>}
@@ -1906,12 +1904,12 @@ export default function Page() {
         <Modal onDismiss={() => setDialog(null)}>
           <h3 style={{ fontSize: 16 }}>{dialog.edit != null ? "Edit reel" : "Add a reel"}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label className="full">Reel width<div className="unit has-select"><input name="w" type="number" min={unit === "inch" ? "4" : "100"} step={unit === "inch" ? "0.01" : "1"} placeholder={unit === "inch" ? "e.g. 59.06" : "e.g. 1500"} value={toDisp(reelForm.w, unit)} onChange={e => setReelForm(f => ({ ...f, w: toMM(e.target.value, unit) }))} /><UnitSelect unit={unit} onChange={changeUnit} label="Reel width unit" /></div></label>
+            <label className="full">Reel width<div className="unit has-select"><input name="w" type="number" min={toDisp(100, unit)} step={unit === "mm" ? "1" : "0.01"} placeholder={unit === "inch" ? "e.g. 59.06" : (unit === "cm" ? "e.g. 150" : "e.g. 1500")} value={toDisp(reelForm.w, unit)} onChange={e => setReelForm(f => ({ ...f, w: toMM(e.target.value, unit) }))} /><UnitSelect unit={unit} onChange={changeUnit} label="Reel width unit" /></div></label>
             <label className="full">Paper Grade (optional)
-              <select name="pg" value={reelForm.pg} onChange={setReelPaper}>
+              <Select name="pg" value={reelForm.pg} onChange={setReelPaper}>
                 <option value="">— pick a grade —</option>
                 {paperRows.map(p => <option key={p._id} value={p.name}>{p.name}</option>)}
-              </select>
+              </Select>
             </label>
             <label>GSM<input name="g" type="number" min="20" step="1" placeholder="e.g. 150" value={reelForm.g} onChange={set(reelForm, setReelForm)} /></label>
             <label>BF<input name="b" type="number" min="1" step="1" placeholder="e.g. 20" value={reelForm.b} onChange={set(reelForm, setReelForm)} /></label>
@@ -1936,7 +1934,7 @@ export default function Page() {
             <label className="full">Price per kg (₹)<input name="p" type="number" min="0" step="0.5" placeholder="e.g. 38" value={paperForm.p} onChange={set(paperForm, setPaperForm)} /></label>
             <label className="full">
               Default Flute (for flute layers)
-              <select
+              <Select
                 name="fl"
                 value={paperForm.fl || "B"}
                 onChange={e => {
@@ -1951,7 +1949,7 @@ export default function Page() {
                 {fluteRows.map(f => (
                   <option key={f.n} value={f.n}>{f.n} · {Number(f.f).toFixed(2)} take-up</option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           <p className="note" style={{ margin: "6px 0 0 0", fontSize: 11 }}>
