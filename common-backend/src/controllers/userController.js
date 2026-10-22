@@ -590,14 +590,16 @@ async function inviteStaff(req, res, next) {
   }
 }
 
-/* DELETE /api/auth/user/remove-staff/:id (vendor only) */
+/* DELETE /api/auth/user/remove-staff/:id */
 async function removeStaff(req, res, next) {
   try {
     const staffId = req.params.id;
+    const targetVendorId = req.auth.role === "vendor" ? req.auth.userId : req.auth.vendorId;
+
     const staff = await User.findOneAndDelete({
       _id: staffId,
       role: "staff",
-      vendorId: req.auth.userId,
+      vendorId: targetVendorId,
     });
 
     if (!staff) {
@@ -605,6 +607,19 @@ async function removeStaff(req, res, next) {
     }
 
     await RefreshToken.deleteMany({ userId: staffId, userType: "staff" });
+
+    // Fetch the name of the person who removed the staff member
+    const remover = req.auth.userId
+      ? await User.findById(req.auth.userId).select("name company")
+      : null;
+    const removerName = remover?.name || remover?.company || "an administrator";
+
+    // Send removal notification email
+    await sendEmail({
+      toEmail: staff.email,
+      subject: "Workspace Access Revoked",
+      body: `Hello ${staff.name || "there"},<br/><br/>Your staff access to the BoxCalc workspace has been revoked by <b>${removerName}</b>.<br/><br/>If you believe this was done in error, please reach out to your administrator.`,
+    });
 
     return res.json({ ok: true, message: `Staff member ${staff.email} removed successfully` });
   } catch (err) {
