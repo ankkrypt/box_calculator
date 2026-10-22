@@ -37,6 +37,29 @@ function getHtml(subject, body, button) {
   `;
 }
 
+function getText(subject, body, button) {
+  const btnLink = button?.link || button?.url;
+  const btnText = button?.text || button?.label;
+
+  const cleanBody = (body || "")
+    .replace(/<br\s*[\/]?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .trim();
+
+  let text = `BOXCALC - Corrugated Packaging Suite\n\n${subject}\n\n${cleanBody}`;
+
+  if (btnText && btnLink) {
+    text += `\n\n${btnText}: ${btnLink}`;
+  }
+
+  text += `\n\n---\n© BoxCalc. Automated system notification. Please do not reply to this email.`;
+
+  return text;
+}
+
 async function sendEmail(toEmail, subject, body, button) {
   // Support both object argument sendEmail({ toEmail, subject, body, button }) or positional
   if (typeof toEmail === "object" && toEmail !== null) {
@@ -44,6 +67,7 @@ async function sendEmail(toEmail, subject, body, button) {
   }
 
   const html = getHtml(subject, body, button);
+  const text = getText(subject, body, button);
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.log(`[mailer dev mode] To: ${toEmail} | Subject: ${subject}`);
@@ -56,6 +80,7 @@ async function sendEmail(toEmail, subject, body, button) {
     from: `BoxCalc <${process.env.SMTP_USER}>`,
     to: toEmail,
     subject,
+    text,
     html,
   });
 }
