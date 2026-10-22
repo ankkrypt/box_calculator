@@ -20,7 +20,19 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
     permissions: {
+      reel: { type: new mongoose.Schema({
+        create: { type: Boolean, default: false },
+        read: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      }, { _id: false }) },
       flute: { type: new mongoose.Schema({
+        create: { type: Boolean, default: false },
+        read: { type: Boolean, default: false },
+        update: { type: Boolean, default: false },
+        delete: { type: Boolean, default: false },
+      }, { _id: false }) },
+      tolerance: { type: new mongoose.Schema({
         create: { type: Boolean, default: false },
         read: { type: Boolean, default: false },
         update: { type: Boolean, default: false },
@@ -38,25 +50,13 @@ const userSchema = new mongoose.Schema(
         update: { type: Boolean, default: false },
         delete: { type: Boolean, default: false },
       }, { _id: false }) },
-      reel: { type: new mongoose.Schema({
+      staff: { type: new mongoose.Schema({
         create: { type: Boolean, default: false },
         read: { type: Boolean, default: false },
         update: { type: Boolean, default: false },
         delete: { type: Boolean, default: false },
       }, { _id: false }) },
       quotation: { type: new mongoose.Schema({
-        create: { type: Boolean, default: false },
-        read: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      }, { _id: false }) },
-      tolerance: { type: new mongoose.Schema({
-        create: { type: Boolean, default: false },
-        read: { type: Boolean, default: false },
-        update: { type: Boolean, default: false },
-        delete: { type: Boolean, default: false },
-      }, { _id: false }) },
-      staff: { type: new mongoose.Schema({
         create: { type: Boolean, default: false },
         read: { type: Boolean, default: false },
         update: { type: Boolean, default: false },
