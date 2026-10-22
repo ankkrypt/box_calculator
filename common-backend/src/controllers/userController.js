@@ -484,12 +484,38 @@ async function resetPasswordWithToken(req, res, next) {
 }
 
 /* --------------------------------------------------------------------------
-   STAFF MANAGEMENT (vendor only)
+   STAFF MANAGEMENT
    -------------------------------------------------------------------------- */
 
-/* POST /api/auth/user/invite-staff (vendor only) */
+/* POST /api/auth/user/invite-staff (vendor or staff with staff.create permission) */
 async function inviteStaff(req, res, next) {
   try {
+    if (!req.auth) {
+      return res.status(401).json({ error: { message: "Authentication required", status: 401 } });
+    }
+
+    // Check if the user is a vendor; if not, check if they have staff.create permission
+    let isPermitted = req.auth.role === "vendor";
+
+    if (!isPermitted) {
+      const staffPerms = req.auth.permissions?.get
+        ? req.auth.permissions.get("staff")
+        : req.auth.permissions?.staff;
+
+      if (staffPerms?.create === true) {
+        isPermitted = true;
+      } else {
+        const currentUser = await User.findById(req.auth.userId).select("role permissions vendorId");
+        if (currentUser?.role === "vendor" || currentUser?.permissions?.staff?.create === true) {
+          isPermitted = true;
+        }
+      }
+    }
+
+    if (!isPermitted) {
+      return res.status(403).json({ error: { message: "Insufficient permissions to invite staff", status: 403 } });
+    }
+
     const { email, name } = req.body;
     if (!email) {
       return res.status(400).json({ error: { message: "Staff email is required", status: 400 } });
@@ -500,23 +526,64 @@ async function inviteStaff(req, res, next) {
       return res.status(409).json({ error: { message: "Email is already registered", status: 409 } });
     }
 
+    const targetVendorId = req.auth.role === "vendor" ? req.auth.userId : req.auth.vendorId;
+    if (!targetVendorId) {
+      return res.status(400).json({ error: { message: "Vendor not found", status: 400 } });
+    }
+
+    // Default permissions for staff (customizable via req.body.permissions)
+    const defaultPermissions = {
+      reel: { create: true, read: true, update: true, delete: false },
+      flute: { create: true, read: true, update: true, delete: true },
+      tolerance: { create: true, read: true, update: true, delete: true },
+      paper: { create: true, read: true, update: true, delete: true },
+      order: { create: true, read: true, update: true, delete: false },
+      staff: { create: false, read: false, update: false, delete: false },
+      quotation: { create: false, read: true, update: false, delete: false },
+      vendorCompany: { create: false, read: true, update: false, delete: false },
+    };
+
+    const permissions = {
+      reel: { ...defaultPermissions.reel, ...(req.body.permissions?.reel || {}) },
+      flute: { ...defaultPermissions.flute, ...(req.body.permissions?.flute || {}) },
+      tolerance: { ...defaultPermissions.tolerance, ...(req.body.permissions?.tolerance || {}) },
+      paper: { ...defaultPermissions.paper, ...(req.body.permissions?.paper || {}) },
+      order: { ...defaultPermissions.order, ...(req.body.permissions?.order || {}) },
+      staff: { ...defaultPermissions.staff, ...(req.body.permissions?.staff || {}) },
+      quotation: { ...defaultPermissions.quotation, ...(req.body.permissions?.quotation || {}) },
+      vendorCompany: { ...defaultPermissions.vendorCompany, ...(req.body.permissions?.vendorCompany || {}) },
+    };
+
     const staff = await User.create({
       role: "staff",
-      vendorId: req.auth.userId,
+      vendorId: targetVendorId,
       name: (name || "").trim(),
       email: normalizedEmail,
       password: normalizedEmail,
+      permissions,
+    });
+
+    // Send invitation email with login credentials
+    const frontendUrl = config.corsOrigin || "http://localhost:3000";
+    const loginUrl = `${frontendUrl}/auth`;
+
+    const inviter = req.auth.userId
+      ? await User.findById(req.auth.userId).select("name company")
+      : null;
+    const inviterName = inviter?.company || inviter?.name || "your organization";
+
+    await sendEmail({
+      toEmail: staff.email,
+      subject: "You've been invited to BoxCalc",
+      body: `Hello ${staff.name || "there"},<br/><br/>You have been invited by <b>${inviterName}</b> to join BoxCalc as a staff member.<br/><br/><b>Login Email:</b> ${staff.email}<br/><b>Temporary Password:</b> ${normalizedEmail}<br/><br/>Click the button below to log in to your account. We recommend updating your password once logged in.`,
+      button: {
+        text: "Log In",
+        link: loginUrl,
+      },
     });
 
     return res.status(201).json({
       message: "Staff invited successfully",
-      staff: {
-        id: staff._id,
-        name: staff.name,
-        email: staff.email,
-        vendorId: staff.vendorId,
-        createdAt: staff.createdAt,
-      },
     });
   } catch (err) {
     return next(err);
