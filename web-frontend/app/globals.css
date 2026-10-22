@@ -1111,6 +1111,7 @@ input[type=checkbox] {
   padding-right: 38px;
 }
 
+button.pwd-toggle,
 .pwd-toggle {
   position: absolute;
   right: 6px;
@@ -1118,7 +1119,7 @@ input[type=checkbox] {
   transform: translateY(-50%);
   background: transparent;
   border: 0;
-  padding: 6px;
+  padding: 5px;
   color: #000000;
   cursor: pointer;
   display: flex;
@@ -1127,11 +1128,21 @@ input[type=checkbox] {
   border-radius: 4px;
   line-height: 1;
   box-shadow: none;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
+button.pwd-toggle:hover:not(:disabled),
 .pwd-toggle:hover {
-  color: var(--fg);
-  background: transparent;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: none;
+  transform: translateY(-50%);
+}
+
+button.pwd-toggle:active:not(:disabled),
+.pwd-toggle:active {
+  background: #27272a;
+  color: #ffffff;
   box-shadow: none;
   transform: translateY(-50%);
 }

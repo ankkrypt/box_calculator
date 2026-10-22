@@ -94,10 +94,7 @@ function ResetPasswordForm() {
 
   return (
     <div className="card authcard">
-      <h2>Create New Password</h2>
-      <p className="note">
-        Setting new password for your <b>{role}</b> account.
-      </p>
+      <h2>Reset Password</h2>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "4px" }}>
         <div>
