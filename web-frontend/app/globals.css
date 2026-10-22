@@ -218,9 +218,9 @@ button:focus-visible {
 .hero {
   display: grid;
   grid-template-columns: minmax(320px, 5fr) 6fr;
-  height: calc(50vh - 56px);
-  height: calc(50dvh - 56px);
-  min-height: 310px;
+  height: 50vh;
+  height: 50dvh;
+  min-height: 340px;
   border-bottom: 2px solid #000000;
 }
 
@@ -1476,5 +1476,257 @@ input[type=checkbox] {
 @media (max-width: 680px) {
   .desktop-only {
     display: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   App Shell & Persistent Left Sidebar
+   -------------------------------------------------------------------------- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--bg);
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.neo-sidebar {
+  width: 260px;
+  min-width: 260px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  left: 0;
+  background: #ffffff;
+  border-right: 2px solid #000000;
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 30;
+  flex-shrink: 0;
+  box-shadow: 2px 0px 0px #000000;
+  font-family: var(--font-heading), var(--font-sans), sans-serif;
+  transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.neo-sidebar.collapsed {
+  width: 68px;
+  min-width: 68px;
+}
+
+.neo-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.neo-sidebar::-webkit-scrollbar-track {
+  background: #f4f4f5;
+}
+
+.neo-sidebar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border-radius: 2px;
+}
+
+.neo-sidebar-toggle-btn {
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0px #000000;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+  flex-shrink: 0;
+  color: #000000;
+  padding: 0;
+}
+
+.neo-sidebar-toggle-btn:hover {
+  background: #f4f4f5;
+  transform: translate(-1px, -1px);
+  box-shadow: 2.5px 2.5px 0px #000000;
+}
+
+.neo-sidebar-toggle-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+.neo-sidebar-user-card {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 5px;
+  padding: 10px 11px;
+  box-shadow: 2px 2px 0px #000000;
+  cursor: pointer;
+  text-align: left;
+  display: block;
+  font-family: inherit;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.neo-sidebar-user-card:hover {
+  background: #fafafa;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.neo-sidebar-user-card:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+.neo-sidebar-user-card-collapsed {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  box-shadow: 2px 2px 0px #000000;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.neo-sidebar-user-card-collapsed:hover {
+  background: #fafafa;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.neo-sidebar-user-card-collapsed:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+.neo-sidebar-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  font-family: var(--font-heading), sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 4px;
+  border: 2px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 2px 2px 0px #000000;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+  user-select: none;
+}
+
+.neo-sidebar-nav-btn:hover {
+  background: #f4f4f5;
+  color: #000000;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.neo-sidebar-nav-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+.neo-sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 4px;
+  border: 2px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 1.5px 1.5px 0px #000000;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.neo-sidebar-action-btn:hover {
+  background: #f4f4f5;
+  transform: translate(-1px, -1px);
+  box-shadow: 2.5px 2.5px 0px #000000;
+}
+
+.neo-sidebar-action-btn:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+.neo-sidebar-logout-btn {
+  width: 100%;
+  padding: 9px 12px;
+  font-family: var(--font-heading), sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  background: #000000;
+  color: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+button.neo-sidebar-logout-btn:hover:not(:disabled),
+.neo-sidebar-logout-btn:hover {
+  background: #18181b;
+  color: #ffffff;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.neo-sidebar-logout-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+@media (max-width: 900px) {
+  .neo-sidebar:not(.collapsed) {
+    width: 220px;
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .neo-sidebar {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 2px solid #000000;
+    box-shadow: 0px 2px 0px #000000;
   }
 }

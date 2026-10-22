@@ -42,6 +42,7 @@ import DieChart from "./DieChart";
 import HourglassLoader from "./HourglassLoader";
 import Select from "../components/Select";
 import UnitSelect from "../components/UnitSelect";
+import Sidebar from "../components/Sidebar";
 import { TOL, FLUTES, BOX_TYPES, role, samplePlies } from "./data";
 import { MM_PER_IN, toDisp, toMM, lenText, areaText, rangeDisp, rangeMM, unitLabel } from "./units";
 
@@ -193,12 +194,10 @@ export default function Page() {
     router.replace("/auth");
   };
 
-  /* Sidebar Drawer & Profile Modal State */
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  /* Profile Modal State */
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const scrollToQuotation = () => {
-    setSidebarOpen(false);
     const el = document.getElementById("quotation-section");
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -211,12 +210,10 @@ export default function Page() {
   };
 
   const handleSidebarInviteStaff = () => {
-    setSidebarOpen(false);
     openStaffModal();
   };
 
   const handleOpenProfile = async () => {
-    setSidebarOpen(false);
     setProfileModalOpen(true);
     if (user?.role === "vendor" && staffList.length === 0) {
       try {
@@ -225,6 +222,40 @@ export default function Page() {
       } catch {
         // ignore
       }
+    }
+  };
+
+  const handleOpenQuotationSettings = () => {
+    setModalConv(quote.conv);
+    setModalMarg(quote.marg);
+    setModalTax(quote.tax);
+    setSettingsMsg("");
+    setSettingsErr("");
+    setQuotationModalOpen(true);
+  };
+
+  const handleSidebarNavigate = (itemId) => {
+    if (itemId === "calc") {
+      const el = document.getElementById("calc");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (itemId === "quotation") {
+      scrollToQuotation();
+    } else if (itemId === "inventory") {
+      setTab("inv");
+      const el = document.getElementById("specs-card");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (itemId === "flutes") {
+      setTab("flute");
+      const el = document.getElementById("specs-card");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (itemId === "tolerances") {
+      setTab("tol");
+      const el = document.getElementById("specs-card");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (itemId === "paper") {
+      setTab("paper");
+      const el = document.getElementById("specs-card");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -301,7 +332,7 @@ export default function Page() {
   const [quote, setQuote] = useState({ conv: 2, marg: 10, tax: 5, trans: 3500, extra: 5 });
   const [orderDiscount, setOrderDiscount] = useState(0); // per-order discount %, never saved to quotation schema
   const [plies, setPlies] = useState(() => samplePlies(5));
-  const [tab, setTab] = useState("flute");
+  const [tab, setTab] = useState("inv");
   const [tolAll, setTolAll] = useState(() => TOL[5] || 12);
   const [dialog, setDialog] = useState(null); // {kind:'flute'|'reel'|'paper', edit}
   const [dialogErr, setDialogErr] = useState("");
@@ -1360,73 +1391,45 @@ export default function Page() {
 
   if (checkingAuth) {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-        <nav>
-          <div className="logo"><i />BoxCalc</div>
-        </nav>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "40px 16px",
-          }}
-        >
-          <HourglassLoader size={54} label="Loading BoxCalc…" />
+      <div className="app-shell">
+        <Sidebar user={null} activeItem="calc" />
+        <div className="app-main">
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "40px 16px",
+            }}
+          >
+            <HourglassLoader size={54} label="Loading BoxCalc…" />
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <>
-      <nav>
-        <div className="logo"><i />BoxCalc</div>
-        <div className="nr">
-          {user ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <button
-                type="button"
-                className="vendor-user-btn"
-                onClick={() => setSidebarOpen(true)}
-                title="Click to open menu"
-                aria-label="Open sidebar menu"
-              >
-                {user.role === "vendor" ? "Vendor" : "Staff"} : {user.name}
-              </button>
-              {user.role === "vendor" && (
-                <button
-                  type="button"
-                  className="btn pri desktop-only"
-                  onClick={openStaffModal}
-                  style={{
-                    padding: "4px 10px",
-                    fontSize: "12px",
-                  }}
-                >
-                  + Invite Staff
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn desktop-only"
-                onClick={handleLogout}
-                style={{ padding: "4px 8px", fontSize: "12px" }}
-              >
-                Log out
-              </button>
-            </div>
-          ) : (
-            <Link href="/auth" className="btn pri">Login</Link>
-          )}
-        </div>
-      </nav>
+  const activeSidebarItem = tab === "inv" ? "inventory" : tab === "flute" ? "flutes" : tab === "tol" ? "tolerances" : tab === "paper" ? "paper" : "calc";
 
-      <section className="hero">
+  return (
+    <div className="app-shell">
+      <Sidebar
+        user={user}
+        activeItem={activeSidebarItem}
+        onNavigate={handleSidebarNavigate}
+        onOpenOrderHistory={openOrderHistory}
+        onOpenQuotation={handleOpenQuotationSettings}
+        onManageStaff={openStaffModal}
+        onInviteStaff={openStaffModal}
+        onOpenProfile={handleOpenProfile}
+        onLogout={handleLogout}
+      />
+      <div className="app-main">
+        <section className="hero" id="calc">
         <div className="left">
-          <h1>Order details</h1>
+          <h1>Calculator</h1>
           <p className="sub">Inside dimensions. Switch between mm and inch — values convert automatically.</p>
           <div className="og">
             <label className="full">Box type
@@ -1475,10 +1478,7 @@ export default function Page() {
         <BoxPreview type={order.type} L={order.L} W={order.W} H={order.H} J={order.J} unit={unit} />
       </section>
 
-      <main id="calc">
-        <h2>Calculator</h2>
-        <p className="sub">Every figure updates as you change the order.</p>
-
+      <main>
         <div className="card">
           <h3>Board build – one row per ply</h3>
           <div className="scroll"><table>
@@ -1689,12 +1689,47 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card" id="specs-card" style={{ marginTop: 16 }}>
           <div className="tabs" role="tablist">
-            {[["flute", "Flute table"], ["inv", "Reel inventory"], ["tol", "Score tolerance"], ["paper", "Paper"]].map(([k, label]) => (
+            {[["inv", "Reel inventory"], ["flute", "Flute table"], ["tol", "Score tolerance"], ["paper", "Paper"]].map(([k, label]) => (
               <button key={k} className="tab" role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
             ))}
           </div>
+
+          {tab === "inv" && (
+            <div role="tabpanel">
+              <div className="row" style={{ alignItems: "end", marginBottom: 10 }}>
+                <label style={{ maxWidth: 260 }}>Search<input placeholder="Width, GSM or BF, e.g. 150" value={reelSearch} onChange={e => setReelSearch(e.target.value)} /></label>
+                <button type="button" className={reelSel.size ? "danger" : ""} style={{ flex: "none" }} disabled={!reelSel.size} onClick={askConfirm("reel-del", delSelReels, reelSel.size)}>{`Delete selected (${reelSel.size})`}</button>
+                <button type="button" className="pri" style={{ flex: "none" }} onClick={() => openReel()}>+ Add reel</button>
+              </div>
+              <div className="scroll" style={{ maxHeight: 380, overflowY: "auto" }}><table className="inv" style={{ minWidth: 700 }}>
+                <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select all reels" checked={displayReels.length > 0 && reelSel.size === displayReels.length} onChange={e => setReelSel(new Set(e.target.checked ? displayReels.map(r => r.id || r._id) : []))} /></th><th>Width <UnitSelect unit={unit} onChange={changeUnit} className="unitpick" label="Reel width unit" /></th><th>Paper Grade</th><th>GSM</th><th>BF</th><th>₹/kg</th><th>Stock (kg)</th><th></th></tr></thead>
+                <tbody>
+                  {displayReels.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: "center", padding: "32px 16px", color: "var(--mute)", fontSize: 13 }}>
+                        {reels.length === 0
+                          ? 'No reels in inventory yet. Click "+ Add reel" to add your paper stock.'
+                          : "No reels match your search."}
+                      </td>
+                    </tr>
+                  ) : (
+                    displayReels.map(r => (
+                      <tr key={r.id || r._id}>
+                        <td><input type="checkbox" aria-label={`Select reel ${r.w}`} checked={reelSel.has(r.id) || reelSel.has(r._id)} onChange={toggleSel(setReelSel)(r.id || r._id)} /></td>
+                        <td><input type="number" min={toDisp(100, unit)} step={unit === "mm" ? "1" : "0.01"} style={{ width: 100 }} aria-label={`Reel width in ${unitLabel(unit)}`} value={toDisp(r.w, unit)} onChange={setReelW(r.id || r._id)} onBlur={e => handleReelWBlur(r.id || r._id, toMM(e.target.value, unit))()} /></td><td style={{ color: "var(--mute)" }}>{r.paperGrade || "—"}</td><td>{r.gsm}</td><td>{r.bf}</td><td>₹{r.price}</td><td>{fmt(r.stock)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <button type="button" style={{ padding: "4px 8px" }} onClick={() => openReel(r.id || r._id)}>Edit</button>{" "}
+                          <button type="button" style={{ padding: "4px 8px" }} onClick={() => delReel(r.id || r._id)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table></div>
+            </div>
+          )}
 
           {tab === "flute" && (
             <div role="tabpanel">
@@ -1724,41 +1759,6 @@ export default function Page() {
                         <td style={{ whiteSpace: "nowrap" }}>
                           <button type="button" style={{ padding: "4px 8px" }} onClick={() => openFlute(k)}>Edit</button>{" "}
                           <button type="button" style={{ padding: "4px 8px" }} onClick={() => delFlute(k)}>Delete</button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table></div>
-            </div>
-          )}
-
-          {tab === "inv" && (
-            <div role="tabpanel">
-              <div className="row" style={{ alignItems: "end", marginBottom: 10 }}>
-                <label style={{ maxWidth: 260 }}>Search<input placeholder="Width, GSM or BF, e.g. 150" value={reelSearch} onChange={e => setReelSearch(e.target.value)} /></label>
-                <button type="button" className={reelSel.size ? "danger" : ""} style={{ flex: "none" }} disabled={!reelSel.size} onClick={askConfirm("reel-del", delSelReels, reelSel.size)}>{`Delete selected (${reelSel.size})`}</button>
-                <button type="button" className="pri" style={{ flex: "none" }} onClick={() => openReel()}>+ Add reel</button>
-              </div>
-              <div className="scroll" style={{ maxHeight: 380, overflowY: "auto" }}><table className="inv" style={{ minWidth: 700 }}>
-                <thead><tr><th style={{ width: 32 }}><input type="checkbox" aria-label="Select all reels" checked={displayReels.length > 0 && reelSel.size === displayReels.length} onChange={e => setReelSel(new Set(e.target.checked ? displayReels.map(r => r.id || r._id) : []))} /></th><th>Width <UnitSelect unit={unit} onChange={changeUnit} className="unitpick" label="Reel width unit" /></th><th>Paper Grade</th><th>GSM</th><th>BF</th><th>₹/kg</th><th>Stock (kg)</th><th></th></tr></thead>
-                <tbody>
-                  {displayReels.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "32px 16px", color: "var(--mute)", fontSize: 13 }}>
-                        {reels.length === 0
-                          ? 'No reels in inventory yet. Click "+ Add reel" to add your paper stock.'
-                          : "No reels match your search."}
-                      </td>
-                    </tr>
-                  ) : (
-                    displayReels.map(r => (
-                      <tr key={r.id || r._id}>
-                        <td><input type="checkbox" aria-label={`Select reel ${r.w}`} checked={reelSel.has(r.id) || reelSel.has(r._id)} onChange={toggleSel(setReelSel)(r.id || r._id)} /></td>
-                        <td><input type="number" min={toDisp(100, unit)} step={unit === "mm" ? "1" : "0.01"} style={{ width: 100 }} aria-label={`Reel width in ${unitLabel(unit)}`} value={toDisp(r.w, unit)} onChange={setReelW(r.id || r._id)} onBlur={e => handleReelWBlur(r.id || r._id, toMM(e.target.value, unit))()} /></td><td style={{ color: "var(--mute)" }}>{r.paperGrade || "—"}</td><td>{r.gsm}</td><td>{r.bf}</td><td>₹{r.price}</td><td>{fmt(r.stock)}</td>
-                        <td style={{ whiteSpace: "nowrap" }}>
-                          <button type="button" style={{ padding: "4px 8px" }} onClick={() => openReel(r.id || r._id)}>Edit</button>{" "}
-                          <button type="button" style={{ padding: "4px 8px" }} onClick={() => delReel(r.id || r._id)}>Delete</button>
                         </td>
                       </tr>
                     ))
@@ -2073,100 +2073,6 @@ export default function Page() {
         </Modal>
       )}
 
-      {/* Sidebar Drawer from Right */}
-      {sidebarOpen && (
-        <>
-          <div
-            className="drawer-backdrop"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
-          <aside className="drawer" role="dialog" aria-label="Navigation drawer" aria-modal="true">
-            <div className="drawer-header">
-              <div className="drawer-header-info">
-                <div className="drawer-header-title">
-                  {user?.role === "vendor" ? "Vendor" : "Staff"} : {user?.name || "User"}
-                </div>
-                <div className="drawer-header-sub" title={user?.email}>
-                  {user?.email}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="drawer-close-btn"
-                onClick={() => setSidebarOpen(false)}
-                aria-label="Close drawer"
-                title="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="drawer-body">
-              <button
-                type="button"
-                className="drawer-link"
-                onClick={() => {
-                  setSidebarOpen(false);
-                  openOrderHistory();
-                }}
-              >
-                Order History
-              </button>
-
-              {user?.role === "vendor" && (
-                <button
-                  type="button"
-                  className="drawer-link"
-                  onClick={() => {
-                    setSidebarOpen(false);
-                    setModalConv(quote.conv);
-                    setModalMarg(quote.marg);
-                    setModalTax(quote.tax);
-                    setSettingsMsg("");
-                    setSettingsErr("");
-                    setQuotationModalOpen(true);
-                  }}
-                >
-                  Quotation
-                </button>
-              )}
-
-              {user?.role === "vendor" && (
-                <button
-                  type="button"
-                  className="drawer-link"
-                  onClick={handleSidebarInviteStaff}
-                >
-                  Invite Staff
-                </button>
-              )}
-
-              <button
-                type="button"
-                className="drawer-link"
-                onClick={handleOpenProfile}
-              >
-                Profile
-              </button>
-            </div>
-
-            <div className="drawer-footer">
-              <button
-                type="button"
-                className="drawer-logout-btn"
-                onClick={() => {
-                  setSidebarOpen(false);
-                  handleLogout();
-                }}
-              >
-                Log out
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
 
       {/* Quotation Settings Modal (Vendor Editable Table) */}
       {quotationModalOpen && (
@@ -2193,9 +2099,9 @@ export default function Page() {
               <table style={{ minWidth: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left", padding: "8px 8px", fontSize: "12px", color: "var(--mute)" }}>Rate Parameter</th>
-                    <th style={{ textAlign: "left", padding: "8px 8px", fontSize: "12px", color: "var(--mute)", width: "110px" }}>Value</th>
-                    <th style={{ textAlign: "left", padding: "8px 8px", fontSize: "12px", color: "var(--mute)" }}>Unit</th>
+                    <th style={{ textAlign: "left", padding: "8px 8px", fontSize: "12px", color: "#ffffff" }}>Rate Parameter</th>
+                    <th style={{ textAlign: "left", padding: "8px 8px", fontSize: "12px", color: "#ffffff", width: "110px" }}>Value</th>
+                    <th style={{ textAlign: "left", padding: "8px 8px", fontSize: "12px", color: "#ffffff" }}>Unit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2494,6 +2400,7 @@ export default function Page() {
           </div>
         </Modal>
       )}
-    </>
+      </div>
+    </div>
   );
 }
