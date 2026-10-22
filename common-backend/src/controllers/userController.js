@@ -18,6 +18,7 @@ const {
   setRefreshCookie,
   clearRefreshCookie,
 } = require("../utils/token");
+const sendEmail = require("../utils/nodemailer");
 
 /* --------------------------------------------------------------------------
    Helpers
@@ -401,68 +402,43 @@ async function resetPassword(req, res, next) {
 }
 
 /* POST /api/auth/forgot-password
-   Role-aware forgot-password on the unified User account.
-   Defaults to the vendor flow when no role is supplied; this app only ever
-   uses the vendor flow (staff are invited, not self-registered). */
+   Searches the user by email directly and dispatches a password reset email. */
 async function forgotPassword(req, res, next) {
   try {
-    const { email, role } = req.body;
+    const { email } = req.body;
     if (!email) {
       return res.status(400).json({ error: { message: "Email is required", status: 400 } });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const targetRole = role === "staff" ? "staff" : "vendor";
+    const user = await findUserByEmail(normalizedEmail);
 
-    // Staff forgot-password only searches staff accounts.
-    if (targetRole === "staff") {
-      const staff = await User.findOne({
-        email: normalizedEmail,
-        role: "staff",
-      });
-
-      if (!staff) {
-        return res.status(404).json({ error: { message: "No staff account found with that email", status: 404 } });
-      }
-
-      const token = crypto.randomBytes(32).toString("hex");
-      staff.resetPasswordToken = token;
-      staff.resetPasswordExpires = new Date(Date.now() + 3600000);
-      await staff.save();
-
-      const frontendUrl = config.corsOrigin || "http://localhost:3000";
-      const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}&role=staff`;
-      console.log(`[auth] Staff password reset link for ${staff.email}: ${resetUrl}`);
-
-      return res.json({
-        ok: true,
-        message: "Password reset link sent",
-        resetUrl,
-      });
-    }
-
-    // Vendor forgot-password searches vendor accounts.
-    const vendor = await User.findOne({
-      email: normalizedEmail,
-      role: "vendor",
-    });
-
-    if (!vendor) {
-      return res.status(404).json({ error: { message: "No vendor account found with that email", status: 404 } });
+    if (!user) {
+      return res.status(404).json({ error: { message: "No account found with that email address", status: 404 } });
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    vendor.resetPasswordToken = token;
-    vendor.resetPasswordExpires = new Date(Date.now() + 3600000);
-    await vendor.save();
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour expiration
+    await user.save();
 
     const frontendUrl = config.corsOrigin || "http://localhost:3000";
-    const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}&role=vendor`;
-    console.log(`[auth] Vendor password reset link for ${vendor.email}: ${resetUrl}`);
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}`;
+    console.log(`[auth] Password reset link for ${user.email}: ${resetUrl}`);
+
+    await sendEmail({
+      toEmail: user.email,
+      subject: "Reset your BoxCalc password",
+      body: `Hello ${user.name || "there"},<br/><br/>We received a request to reset your password. Click the button below to choose a new password. This link is valid for 1 hour.<br/><br/>If you did not request this, you can safely ignore this email.`,
+      button: {
+        text: "Reset Password",
+        link: resetUrl,
+      },
+    });
 
     return res.json({
       ok: true,
-      message: "Password reset link sent",
+      message: "Password reset link sent to your email",
       resetUrl,
     });
   } catch (err) {
@@ -471,11 +447,10 @@ async function forgotPassword(req, res, next) {
 }
 
 /* POST /api/auth/reset-password-token
-   Role-aware token reset on the unified User account.
-   Defaults to the vendor flow when no role is supplied. */
+   Validates the reset token and updates the user's password. */
 async function resetPasswordWithToken(req, res, next) {
   try {
-    const { token, password, role } = req.body;
+    const { token, password } = req.body;
     if (!token || !password) {
       return res.status(400).json({ error: { message: "Token and new password are required", status: 400 } });
     }
@@ -483,19 +458,13 @@ async function resetPasswordWithToken(req, res, next) {
       return res.status(400).json({ error: { message: "Password must be at least 8 characters", status: 400 } });
     }
 
-    const targetRole = role === "staff" ? "staff" : "vendor";
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: new Date() },
-      role: targetRole,
     });
 
     if (!user) {
       return res.status(400).json({ error: { message: "Invalid or expired reset token", status: 400 } });
-    }
-
-    if (targetRole === "staff" && user.role !== "staff") {
-      return res.status(400).json({ error: { message: "This reset link is not valid for a staff account", status: 400 } });
     }
 
     user.password = password;
@@ -504,7 +473,7 @@ async function resetPasswordWithToken(req, res, next) {
     await user.save();
 
     await RefreshToken.updateMany(
-      { userId: user._id, userType: targetRole, revokedAt: null },
+      { userId: user._id, revokedAt: null },
       { $set: { revokedAt: new Date() } }
     );
 
