@@ -230,6 +230,13 @@ export async function updateProfile({ name, email }) {
   });
 }
 
+export async function changePassword({ oldPassword, newPassword }) {
+  return api("/api/auth/reset-password", {
+    method: "POST",
+    body: { oldPassword, newPassword },
+  });
+}
+
 export async function getStaffList() {
   const data = await api("/api/auth/user/staff");
   return data?.staff || [];

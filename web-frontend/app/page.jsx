@@ -8,6 +8,7 @@ import {
   clearAuthSession,
   setStoredUser,
   updateProfile,
+  changePassword,
   inviteStaff,
   updateStaff,
   getStaffList,
@@ -376,6 +377,24 @@ function PermissionsMatrix({ permissions, onChange, disabled = false }) {
   );
 }
 
+/* Eye icon toggle for password visibility matching /auth page */
+function EyeIcon({ visible }) {
+  if (visible) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  );
+}
+
 export default function Page() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -432,6 +451,16 @@ export default function Page() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
   const [profileErr, setProfileErr] = useState("");
+  const [profileScreen, setProfileScreen] = useState("overview"); // "overview" | "password"
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState("");
+  const [passwordErr, setPasswordErr] = useState("");
   const profileNameRowRef = useRef(null);
   const profileEmailRowRef = useRef(null);
 
@@ -569,12 +598,18 @@ export default function Page() {
   };
 
   const handleOpenProfile = async () => {
+    setProfileScreen("overview");
     setProfileName(user?.name || "");
     setProfileEmail(user?.email || "");
     setIsEditingName(false);
     setIsEditingEmail(false);
     setProfileMsg("");
     setProfileErr("");
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordMsg("");
+    setPasswordErr("");
     setProfileModalOpen(true);
     if (user?.role === "vendor" && staffList.length === 0) {
       try {
@@ -587,11 +622,68 @@ export default function Page() {
   };
 
   const handleCancelProfile = () => {
+    setProfileScreen("overview");
     setProfileName(user?.name || "");
     setProfileEmail(user?.email || "");
     setIsEditingName(false);
     setIsEditingEmail(false);
     setProfileErr("");
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordMsg("");
+    setPasswordErr("");
+  };
+
+  const handleOpenChangePassword = () => {
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowOldPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setPasswordMsg("");
+    setPasswordErr("");
+    setProfileScreen("password");
+  };
+
+  const handleUpdatePassword = async (e) => {
+    if (e) e.preventDefault();
+    setPasswordErr("");
+    setPasswordMsg("");
+
+    if (user?.role === "vendor" && !oldPassword) {
+      setPasswordErr("Old password is required for vendor accounts");
+      return;
+    }
+    if (!newPassword || newPassword.length < 8) {
+      setPasswordErr("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordErr("New passwords do not match");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const res = await changePassword({
+        oldPassword: oldPassword || undefined,
+        newPassword,
+      });
+      setPasswordMsg(res?.message || "Password updated successfully!");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => {
+        setPasswordMsg("");
+        setProfileScreen("overview");
+      }, 1500);
+    } catch (err) {
+      setPasswordErr(err?.message || "Failed to update password");
+    } finally {
+      setPasswordSaving(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -3144,295 +3236,521 @@ export default function Page() {
         {/* Account Profile Modal */}
         {profileModalOpen && (
           <Modal onDismiss={() => { setProfileModalOpen(false); handleCancelProfile(); }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h3 style={{ fontSize: "16px", margin: 0, fontWeight: "700" }}>Account Profile</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setProfileModalOpen(false);
-                  handleCancelProfile();
-                }}
-                style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
-              {/* Full Name Row */}
-              <div
-                ref={profileNameRowRef}
-                className={`kv profile-editable-row ${isEditingName ? "is-editing" : ""}`}
-                style={{ alignItems: "center" }}
-              >
-                <span>Full Name</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
-                  {!isEditingName && (
+            {profileScreen === "password" ? (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid var(--line)", paddingBottom: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <button
                       type="button"
-                      className="profile-edit-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setProfileErr("");
-                        setIsEditingName(true);
-                      }}
-                      disabled={profileSaving}
-                      title="Edit name"
-                      aria-label="Edit name"
-                      style={{
-                        background: "#ffffff",
-                        color: "#000000",
-                        border: "1.5px solid #000000",
-                        borderRadius: "4px",
-                        width: "24px",
-                        height: "24px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "1px 1px 0px #000000",
-                        padding: 0,
-                        flexShrink: 0,
-                        fontSize: "12px",
-                        lineHeight: 1,
-                        transition: "all 0.15s ease",
-                      }}
+                      onClick={() => setProfileScreen("overview")}
+                      disabled={passwordSaving}
+                      className="btn"
+                      style={{ padding: "4px 10px", fontSize: "12px", fontWeight: "700" }}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9"/>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                      </svg>
+                      ← Back
                     </button>
-                  )}
-
-                  {isEditingName ? (
-                    <input
-                      type="text"
-                      required
-                      value={profileName}
-                      onChange={e => setProfileName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleSaveProfile();
-                        } else if (e.key === "Escape") {
-                          setIsEditingName(false);
-                          setProfileName(user?.name || "");
-                        }
-                      }}
-                      disabled={profileSaving}
-                      placeholder="Full Name"
-                      autoFocus
-                      style={{
-                        padding: "3px 8px",
-                        fontSize: "13px",
-                        fontWeight: "700",
-                        textAlign: "right",
-                        width: "200px",
-                        maxWidth: "55vw",
-                        border: "2px solid #000000",
-                        borderRadius: "4px",
-                        boxShadow: "1px 1px 0px #000000",
-                        background: "#ffffff",
-                      }}
-                    />
-                  ) : (
-                    <b
-                      style={{ cursor: "pointer" }}
-                      onClick={() => {
-                        setProfileErr("");
-                        setIsEditingName(true);
-                      }}
-                      title="Click to edit name"
-                    >
-                      {profileName || user?.name || "Vendor User"}
-                    </b>
-                  )}
-                </div>
-              </div>
-
-              {/* Email Row */}
-              <div
-                ref={profileEmailRowRef}
-                className={`kv profile-editable-row ${isEditingEmail ? "is-editing" : ""}`}
-                style={{ alignItems: "center" }}
-              >
-                <span>Email</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
-                  {!isEditingEmail && (
-                    <button
-                      type="button"
-                      className="profile-edit-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setProfileErr("");
-                        setIsEditingEmail(true);
-                      }}
-                      disabled={profileSaving}
-                      title="Edit email"
-                      aria-label="Edit email"
-                      style={{
-                        background: "#ffffff",
-                        color: "#000000",
-                        border: "1.5px solid #000000",
-                        borderRadius: "4px",
-                        width: "24px",
-                        height: "24px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "1px 1px 0px #000000",
-                        padding: 0,
-                        flexShrink: 0,
-                        fontSize: "12px",
-                        lineHeight: 1,
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9"/>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                      </svg>
-                    </button>
-                  )}
-
-                  {isEditingEmail ? (
-                    <input
-                      type="email"
-                      required
-                      value={profileEmail}
-                      onChange={e => setProfileEmail(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleSaveProfile();
-                        } else if (e.key === "Escape") {
-                          setIsEditingEmail(false);
-                          setProfileEmail(user?.email || "");
-                        }
-                      }}
-                      disabled={profileSaving}
-                      placeholder="email@example.com"
-                      autoFocus
-                      style={{
-                        padding: "3px 8px",
-                        fontSize: "12.5px",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: "700",
-                        textAlign: "right",
-                        width: "220px",
-                        maxWidth: "55vw",
-                        border: "2px solid #000000",
-                        borderRadius: "4px",
-                        boxShadow: "1px 1px 0px #000000",
-                        background: "#ffffff",
-                      }}
-                    />
-                  ) : (
-                    <b
-                      style={{ cursor: "pointer" }}
-                      onClick={() => {
-                        setProfileErr("");
-                        setIsEditingEmail(true);
-                      }}
-                      title="Click to edit email"
-                    >
-                      {profileEmail || user?.email || "—"}
-                    </b>
-                  )}
-                </div>
-              </div>
-
-              <div className="kv">
-                <span>Account Role</span>
-                <b style={{ textTransform: "capitalize" }}>{user?.role === "vendor" ? "Vendor (Owner)" : "Staff Member"}</b>
-              </div>
-
-              {user?.company && (
-                <div className="kv">
-                  <span>Company</span>
-                  <b>{user.company}</b>
-                </div>
-              )}
-
-              <div className="kv">
-                <span>Subscription Plan</span>
-                <b>Active</b>
-              </div>
-
-              {user?.role === "vendor" && (
-                <div className="kv">
-                  <span>Active Staff</span>
-                  <b>{staffList.length} member(s)</b>
-                </div>
-              )}
-
-              {user?.role === "vendor" && (
-                <div style={{ marginTop: "6px" }}>
+                    <h3 style={{ fontSize: "15px", margin: 0, fontWeight: "700" }}>Update Password</h3>
+                  </div>
                   <button
                     type="button"
-                    className="btn"
                     onClick={() => {
                       setProfileModalOpen(false);
-                      handleOpenCompanySettings();
+                      handleCancelProfile();
                     }}
-                    style={{ width: "100%", justifyContent: "center", fontSize: "12px", gap: "6px" }}
+                    style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
+                    aria-label="Close"
                   >
-                    <span>🏢</span> Edit Company Details
+                    ✕
                   </button>
                 </div>
-              )}
-            </div>
 
-            {profileMsg && (
-              <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1.5px solid #16a34a", borderRadius: "6px", padding: "8px 12px", fontSize: "12px", color: "#166534", fontWeight: "700", marginBottom: "12px" }}>
-                {profileMsg}
-              </div>
-            )}
-            {profileErr && (
-              <div className="err" style={{ marginBottom: "12px" }}>
-                {profileErr}
-              </div>
-            )}
+                <form onSubmit={handleUpdatePassword} style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "8px" }}>
+                  {user?.role === "vendor" && (
+                    <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12.5px", fontWeight: "600" }}>
+                      <span>
+                        Old Password <span style={{ color: "var(--err, #ef4444)" }}>*</span>
+                      </span>
+                      <div className="pwd-wrap">
+                        <input
+                          type={showOldPassword ? "text" : "password"}
+                          required
+                          value={oldPassword}
+                          onChange={e => setOldPassword(e.target.value)}
+                          disabled={passwordSaving}
+                          placeholder="Enter your current password"
+                          autoFocus
+                          style={{
+                            width: "100%",
+                            padding: "7px 38px 7px 10px",
+                            fontSize: "13px",
+                            fontFamily: "var(--font-mono)",
+                            borderRadius: "4px",
+                            border: "2px solid #000000",
+                            boxShadow: "1px 1px 0px #000000",
+                            background: "#ffffff",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="pwd-toggle"
+                          onClick={() => setShowOldPassword(!showOldPassword)}
+                          aria-label={showOldPassword ? "Hide password" : "Show password"}
+                          title={showOldPassword ? "Hide password" : "Show password"}
+                        >
+                          <EyeIcon visible={showOldPassword} />
+                        </button>
+                      </div>
+                    </label>
+                  )}
 
-            <div className="row" style={{ justifyContent: "flex-end", gap: "8px", marginTop: 8 }}>
-              {hasProfileChanges ? (
-                <>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12.5px", fontWeight: "600" }}>
+                    <span>
+                      New Password <span style={{ color: "var(--err, #ef4444)" }}>*</span>
+                    </span>
+                    <div className="pwd-wrap">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        required
+                        minLength={8}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        disabled={passwordSaving}
+                        placeholder="At least 8 characters"
+                        style={{
+                          width: "100%",
+                          padding: "7px 38px 7px 10px",
+                          fontSize: "13px",
+                          fontFamily: "var(--font-mono)",
+                          borderRadius: "4px",
+                          border: "2px solid #000000",
+                          boxShadow: "1px 1px 0px #000000",
+                          background: "#ffffff",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="pwd-toggle"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        aria-label={showNewPassword ? "Hide password" : "Show password"}
+                        title={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        <EyeIcon visible={showNewPassword} />
+                      </button>
+                    </div>
+                  </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12.5px", fontWeight: "600" }}>
+                    <span>
+                      Confirm New Password <span style={{ color: "var(--err, #ef4444)" }}>*</span>
+                    </span>
+                    <div className="pwd-wrap">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        required
+                        minLength={8}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        disabled={passwordSaving}
+                        placeholder="Re-enter new password"
+                        style={{
+                          width: "100%",
+                          padding: "7px 38px 7px 10px",
+                          fontSize: "13px",
+                          fontFamily: "var(--font-mono)",
+                          borderRadius: "4px",
+                          border: "2px solid #000000",
+                          boxShadow: "1px 1px 0px #000000",
+                          background: "#ffffff",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="pwd-toggle"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        <EyeIcon visible={showConfirmPassword} />
+                      </button>
+                    </div>
+                  </label>
+
+                  {passwordMsg && (
+                    <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1.5px solid #16a34a", borderRadius: "6px", padding: "8px 12px", fontSize: "12px", color: "#166534", fontWeight: "700" }}>
+                      {passwordMsg}
+                    </div>
+                  )}
+                  {passwordErr && (
+                    <div className="err" style={{ margin: 0 }}>
+                      {passwordErr}
+                    </div>
+                  )}
+
+                  <div className="row" style={{ justifyContent: "flex-end", gap: "8px", marginTop: 8, paddingTop: 6 }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setProfileScreen("overview")}
+                      disabled={passwordSaving}
+                      style={{ flex: "none", padding: "6px 16px" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn pri"
+                      disabled={passwordSaving}
+                      style={{ flex: "none", padding: "6px 16px" }}
+                    >
+                      {passwordSaving ? "Updating…" : "Update Password"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                  <h3 style={{ fontSize: "16px", margin: 0, fontWeight: "700" }}>Account Profile</h3>
                   <button
                     type="button"
-                    className="btn profile-action-btn"
-                    onClick={handleCancelProfile}
-                    disabled={profileSaving}
-                    style={{ flex: "none", padding: "6px 16px" }}
+                    onClick={() => {
+                      setProfileModalOpen(false);
+                      handleCancelProfile();
+                    }}
+                    style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
+                    aria-label="Close"
                   >
-                    Cancel
+                    ✕
                   </button>
-                  <button
-                    type="button"
-                    className="btn pri profile-action-btn"
-                    onClick={handleSaveProfile}
-                    disabled={profileSaving}
-                    style={{ flex: "none", padding: "6px 16px" }}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
+                  {/* Full Name Row */}
+                  <div
+                    ref={profileNameRowRef}
+                    className={`kv profile-editable-row ${isEditingName ? "is-editing" : ""}`}
+                    style={{ alignItems: "center" }}
                   >
-                    {profileSaving ? "Saving…" : "Save Changes"}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="btn pri profile-action-btn"
-                  onClick={() => {
-                    setProfileModalOpen(false);
-                    handleCancelProfile();
-                  }}
-                  style={{ flex: "none", padding: "6px 16px" }}
-                >
-                  Close
-                </button>
-              )}
-            </div>
+                    <span>Full Name</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
+                      {!isEditingName && (
+                        <button
+                          type="button"
+                          className="profile-edit-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProfileErr("");
+                            setIsEditingName(true);
+                          }}
+                          disabled={profileSaving}
+                          title="Edit name"
+                          aria-label="Edit name"
+                          style={{
+                            background: "#ffffff",
+                            color: "#000000",
+                            border: "1.5px solid #000000",
+                            borderRadius: "4px",
+                            width: "24px",
+                            height: "24px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            boxShadow: "1px 1px 0px #000000",
+                            padding: 0,
+                            flexShrink: 0,
+                            fontSize: "12px",
+                            lineHeight: 1,
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                          </svg>
+                        </button>
+                      )}
+
+                      {isEditingName ? (
+                        <input
+                          type="text"
+                          required
+                          value={profileName}
+                          onChange={e => setProfileName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSaveProfile();
+                            } else if (e.key === "Escape") {
+                              setIsEditingName(false);
+                              setProfileName(user?.name || "");
+                            }
+                          }}
+                          disabled={profileSaving}
+                          placeholder="Full Name"
+                          autoFocus
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "13px",
+                            fontWeight: "700",
+                            textAlign: "right",
+                            width: "200px",
+                            maxWidth: "55vw",
+                            border: "2px solid #000000",
+                            borderRadius: "4px",
+                            boxShadow: "1px 1px 0px #000000",
+                            background: "#ffffff",
+                          }}
+                        />
+                      ) : (
+                        <b
+                          style={{ cursor: "pointer" }}
+                          onClick={() => {
+                            setProfileErr("");
+                            setIsEditingName(true);
+                          }}
+                          title="Click to edit name"
+                        >
+                          {profileName || user?.name || "Vendor User"}
+                        </b>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Email Row */}
+                  <div
+                    ref={profileEmailRowRef}
+                    className={`kv profile-editable-row ${isEditingEmail ? "is-editing" : ""}`}
+                    style={{ alignItems: "center" }}
+                  >
+                    <span>Email</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
+                      {!isEditingEmail && (
+                        <button
+                          type="button"
+                          className="profile-edit-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProfileErr("");
+                            setIsEditingEmail(true);
+                          }}
+                          disabled={profileSaving}
+                          title="Edit email"
+                          aria-label="Edit email"
+                          style={{
+                            background: "#ffffff",
+                            color: "#000000",
+                            border: "1.5px solid #000000",
+                            borderRadius: "4px",
+                            width: "24px",
+                            height: "24px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            boxShadow: "1px 1px 0px #000000",
+                            padding: 0,
+                            flexShrink: 0,
+                            fontSize: "12px",
+                            lineHeight: 1,
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                          </svg>
+                        </button>
+                      )}
+
+                      {isEditingEmail ? (
+                        <input
+                          type="email"
+                          required
+                          value={profileEmail}
+                          onChange={e => setProfileEmail(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSaveProfile();
+                            } else if (e.key === "Escape") {
+                              setIsEditingEmail(false);
+                              setProfileEmail(user?.email || "");
+                            }
+                          }}
+                          disabled={profileSaving}
+                          placeholder="email@example.com"
+                          autoFocus
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "12.5px",
+                            fontFamily: "var(--font-mono)",
+                            fontWeight: "700",
+                            textAlign: "right",
+                            width: "220px",
+                            maxWidth: "55vw",
+                            border: "2px solid #000000",
+                            borderRadius: "4px",
+                            boxShadow: "1px 1px 0px #000000",
+                            background: "#ffffff",
+                          }}
+                        />
+                      ) : (
+                        <b
+                          style={{ cursor: "pointer" }}
+                          onClick={() => {
+                            setProfileErr("");
+                            setIsEditingEmail(true);
+                          }}
+                          title="Click to edit email"
+                        >
+                          {profileEmail || user?.email || "—"}
+                        </b>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Password Row */}
+                  <div
+                    className="kv profile-editable-row"
+                    style={{ alignItems: "center" }}
+                  >
+                    <span>Password</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
+                      <button
+                        type="button"
+                        className="profile-edit-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenChangePassword();
+                        }}
+                        title="Change password"
+                        aria-label="Change password"
+                        style={{
+                          background: "#ffffff",
+                          color: "#000000",
+                          border: "1.5px solid #000000",
+                          borderRadius: "4px",
+                          width: "24px",
+                          height: "24px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          boxShadow: "1px 1px 0px #000000",
+                          padding: 0,
+                          flexShrink: 0,
+                          fontSize: "12px",
+                          lineHeight: 1,
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9"/>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                      </button>
+
+                      <b
+                        style={{ cursor: "pointer", letterSpacing: "2.5px", fontSize: "14px", fontFamily: "var(--font-mono)" }}
+                        onClick={handleOpenChangePassword}
+                        title="Click to change password"
+                      >
+                        ••••••••
+                      </b>
+                    </div>
+                  </div>
+
+                  <div className="kv">
+                    <span>Account Role</span>
+                    <b style={{ textTransform: "capitalize" }}>{user?.role === "vendor" ? "Vendor (Owner)" : "Staff Member"}</b>
+                  </div>
+
+                  {user?.company && (
+                    <div className="kv">
+                      <span>Company</span>
+                      <b>{user.company}</b>
+                    </div>
+                  )}
+
+                  <div className="kv">
+                    <span>Subscription Plan</span>
+                    <b>Active</b>
+                  </div>
+
+                  {user?.role === "vendor" && (
+                    <div className="kv">
+                      <span>Active Staff</span>
+                      <b>{staffList.length} member(s)</b>
+                    </div>
+                  )}
+
+                  {user?.role === "vendor" && (
+                    <div style={{ marginTop: "6px" }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setProfileModalOpen(false);
+                          handleOpenCompanySettings();
+                        }}
+                        style={{ width: "100%", justifyContent: "center", fontSize: "12px", gap: "6px" }}
+                      >
+                        <span>🏢</span> Edit Company Details
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {profileMsg && (
+                  <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1.5px solid #16a34a", borderRadius: "6px", padding: "8px 12px", fontSize: "12px", color: "#166534", fontWeight: "700", marginBottom: "12px" }}>
+                    {profileMsg}
+                  </div>
+                )}
+                {profileErr && (
+                  <div className="err" style={{ marginBottom: "12px" }}>
+                    {profileErr}
+                  </div>
+                )}
+
+                <div className="row" style={{ justifyContent: "flex-end", gap: "8px", marginTop: 8 }}>
+                  {hasProfileChanges ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn profile-action-btn"
+                        onClick={handleCancelProfile}
+                        disabled={profileSaving}
+                        style={{ flex: "none", padding: "6px 16px" }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn pri profile-action-btn"
+                        onClick={handleSaveProfile}
+                        disabled={profileSaving}
+                        style={{ flex: "none", padding: "6px 16px" }}
+                      >
+                        {profileSaving ? "Saving…" : "Save Changes"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn pri profile-action-btn"
+                      onClick={() => {
+                        setProfileModalOpen(false);
+                        handleCancelProfile();
+                      }}
+                      style={{ flex: "none", padding: "6px 16px" }}
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </Modal>
         )}
 
