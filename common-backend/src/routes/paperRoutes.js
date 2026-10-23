@@ -1,16 +1,16 @@
 const express = require("express");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requirePermission } = require("../middleware/auth");
 const { getPaperGrades, createPaperGrade, updatePaperGrade, deletePaperGrade, bulkDeletePaperGrades, resetPaperGrades } = require("../controllers/paperGradeController");
 
 const router = express.Router();
 
 router.use(requireAuth);
 
-router.get("/", getPaperGrades);
-router.post("/", createPaperGrade);
-router.post("/reset", resetPaperGrades);
-router.post("/bulk-delete", bulkDeletePaperGrades);
-router.put("/:id", updatePaperGrade);
-router.delete("/:id", deletePaperGrade);
+router.get("/", requirePermission("paper", "read"), getPaperGrades);
+router.post("/", requirePermission("paper", "create"), createPaperGrade);
+router.post("/reset", requirePermission("paper", "create"), resetPaperGrades);
+router.post("/bulk-delete", requirePermission("paper", "delete"), bulkDeletePaperGrades);
+router.put("/:id", requirePermission("paper", "update"), updatePaperGrade);
+router.delete("/:id", requirePermission("paper", "delete"), deletePaperGrade);
 
 module.exports = router;

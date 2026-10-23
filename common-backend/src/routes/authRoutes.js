@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/userController");
-const { requireAuth, requireRole } = require("../middleware/auth");
+const { requireAuth, requirePermission } = require("../middleware/auth");
 
 /* ==========================================================================
    Unified User Auth Routes
@@ -30,35 +30,34 @@ router.post("/user/signup", userController.signup);
 
 router.get("/user/me", requireAuth, userController.getMe);
 
-// Vendor-only staff management (still operates on User docs, just gated).
+// Staff management
 router.post(
   "/user/invite-staff",
   requireAuth,
-  requireRole("vendor"),
+  requirePermission("staff", "create"),
   userController.inviteStaff,
 );
 
 router.delete(
   "/user/remove-staff/:id",
   requireAuth,
-  requireRole("vendor"),
+  requirePermission("staff", "delete"),
   userController.removeStaff,
 );
 
 router.get(
   "/user/staff",
   requireAuth,
-  requireRole("vendor"),
+  requirePermission("staff", "read"),
   userController.getStaffList,
 );
 
-// Account settings (quotation rates). Readable by anyone authenticated;
-// writes are vendor-only.
-router.get("/user/settings", requireAuth, userController.getSettings);
+// Account settings (quotation rates).
+router.get("/user/settings", requireAuth, requirePermission("quotation", "read"), userController.getSettings);
 router.put(
   "/user/settings",
   requireAuth,
-  requireRole("vendor"),
+  requirePermission("quotation", "update"),
   userController.updateSettings,
 );
 

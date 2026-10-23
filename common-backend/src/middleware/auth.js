@@ -21,52 +21,23 @@ function requireAuth(req, res, next) {
   return next();
 }
 
-/* Role gate — e.g. requireRole("vendor") for owner-only endpoints (invites,
-   settings). Staff routes will use requireRole("staff") (or both) when built. */
-function requireRole(...roles) {
-  return (req, res, next) => {
-    if (!req.auth) {
-      console.log(`[Auth] requireRole: Missing req.auth on ${req.method} ${req.originalUrl}`);
-      return res.status(401).json({ error: { message: "Authentication required", status: 401 } });
-    }
-    if (!roles.includes(req.auth.role)) {
-      console.log(`[Auth] requireRole: Forbidden. User role '${req.auth.role}' not in [${roles.join(", ")}]`);
-      return res.status(403).json({ error: { message: "Insufficient permissions", status: 403 } });
-    }
-    return next();
-  };
-}
-
-/* Permission gate — e.g. requirePermission("vendorCompany", "read") for staff
-   who have been granted read access to the vendor company schema. Check the */
-/* permissions map on the authenticated user (loaded from the JWT) to see */
-/* which schemas they can read, update, delete. */
+/* Permission gate — e.g. requirePermission("vendorCompany", "read")
+   - If user role is vendor: full access always (proceeds directly).
+   - If user role is staff: checks the permissions for the schema and action passed from params. */
 function requirePermission(schema, action) {
   return (req, res, next) => {
-    if (!req.auth) {
-      console.log(`[Auth] requirePermission: Missing req.auth on ${req.method} ${req.originalUrl}`);
-      return res.status(401).json({ error: { message: "Authentication required", status: 401 } });
-    }
-
-    const isVendor = req.auth.role === "vendor";
-    const hasVendorFullAccess = isVendor;
-
-    if (isVendor) {
-      // Vendors always have full access to everything
+    // Vendor has full access always
+    if (req.auth.role === "vendor") {
       return next();
     }
 
-    // Staff: check the permissions map for the requested schema and action
-    const perms = req.auth.permissions?.get?.(schema);
-    if (!perms) {
-      // Schema not in permissions map means no access
-      console.log(`[Auth] requirePermission: Staff '${req.auth.userId}' lacks permission '${action}' on schema '${schema}'`);
-      return res.status(403).json({ error: { message: "Insufficient permissions", status: 403 } });
-    }
+    // Staff: check permissions for the requested schema and action
+    const perms = typeof req.auth.permissions?.get === "function"
+      ? req.auth.permissions.get(schema)
+      : req.auth.permissions?.[schema];
 
-    const allowed = perms[action];
-    if (!allowed) {
-      console.log(`[Auth] requirePermission: Staff '${req.auth.userId}' lacks '${action}' permission on schema '${schema}'`);
+    if (!perms || !perms[action]) {
+      console.log(`[Auth] requirePermission: Staff '${req.auth.userId}' lacks '${action}' permission on '${schema}'`);
       return res.status(403).json({ error: { message: "Insufficient permissions", status: 403 } });
     }
 
@@ -74,4 +45,4 @@ function requirePermission(schema, action) {
   };
 }
 
-module.exports = { requireAuth, requireRole, requirePermission };
+module.exports = { requireAuth, requirePermission };
