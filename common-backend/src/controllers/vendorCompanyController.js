@@ -18,8 +18,14 @@ async function getMe(req, res, next) {
     }).select("-__v");
 
     if (!vendorCompany) {
-      return res.status(404).json({
-        error: { message: "Vendor company not found", status: 404 },
+      return res.json({
+        vendorCompany: {
+          id: null,
+          name: "",
+          address: "",
+          email: "",
+          contact: "",
+        },
       });
     }
 
@@ -31,6 +37,46 @@ async function getMe(req, res, next) {
         email: vendorCompany.email,
         contact: vendorCompany.contact,
       },
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/* PUT /api/vendor-company/me
+   Update or upsert the authenticated vendor's company details. */
+async function updateMe(req, res, next) {
+  try {
+    const { name, address, email, contact } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        error: { message: "Company name is required", status: 400 },
+      });
+    }
+
+    const updateFields = {
+      name: name.trim(),
+    };
+    if (address !== undefined) updateFields.address = address.trim();
+    if (email !== undefined) updateFields.email = email.trim().toLowerCase();
+    if (contact !== undefined) updateFields.contact = contact.trim();
+
+    const company = await VendorCompany.findOneAndUpdate(
+      { vendorId: req.auth.vendorId },
+      { $set: updateFields },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    ).select("-__v");
+
+    return res.json({
+      vendorCompany: {
+        id: company._id,
+        name: company.name,
+        address: company.address,
+        email: company.email,
+        contact: company.contact,
+      },
+      message: "Company details updated successfully",
     });
   } catch (err) {
     return next(err);
@@ -205,6 +251,7 @@ async function remove(req, res, next) {
 
 module.exports = {
   getMe,
+  updateMe,
   getAll,
   getById,
   create,

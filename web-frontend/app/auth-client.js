@@ -405,3 +405,19 @@ export async function resetPaperGrades() {
   });
   return data?.papers || [];
 }
+
+/* ==========================================================================
+   VENDOR COMPANY API
+   ========================================================================== */
+export async function getVendorCompany() {
+  const data = await api("/api/vendor-company/me");
+  return data?.vendorCompany || null;
+}
+
+export async function updateVendorCompany(payload) {
+  const data = await api("/api/vendor-company/me", {
+    method: "PUT",
+    body: payload,
+  });
+  return data?.vendorCompany || null;
+}

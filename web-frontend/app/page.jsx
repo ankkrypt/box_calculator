@@ -36,6 +36,8 @@ import {
   deletePaperGrade,
   bulkDeletePaperGrades,
   resetPaperGrades as resetPaperGradesApi,
+  getVendorCompany,
+  updateVendorCompany,
 } from "./auth-client";
 import BoxPreview from "./BoxPreview";
 import DieChart from "./DieChart";
@@ -196,6 +198,86 @@ export default function Page() {
 
   /* Profile Modal State */
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  /* Company Settings Modal State (Vendor) */
+  const [companySettingsModalOpen, setCompanySettingsModalOpen] = useState(false);
+  const [companyForm, setCompanyForm] = useState({
+    name: "",
+    address: "",
+    email: "",
+    contact: "",
+  });
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companySaving, setCompanySaving] = useState(false);
+  const [companyMsg, setCompanyMsg] = useState("");
+  const [companyErr, setCompanyErr] = useState("");
+
+  const handleOpenCompanySettings = async () => {
+    setCompanyMsg("");
+    setCompanyErr("");
+    setCompanySettingsModalOpen(true);
+    setCompanyLoading(true);
+    try {
+      const data = await getVendorCompany();
+      if (data) {
+        setCompanyForm({
+          name: data.name || user?.company || "",
+          address: data.address || "",
+          email: data.email || user?.email || "",
+          contact: data.contact || "",
+        });
+      } else {
+        setCompanyForm({
+          name: user?.company || "",
+          address: "",
+          email: user?.email || "",
+          contact: "",
+        });
+      }
+    } catch (err) {
+      setCompanyErr(err.message || "Failed to load company details");
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
+
+  const handleSaveCompanySettings = async (e) => {
+    if (e) e.preventDefault();
+    if (!companyForm.name || !companyForm.name.trim()) {
+      setCompanyErr("Company name is required.");
+      return;
+    }
+    setCompanySaving(true);
+    setCompanyMsg("");
+    setCompanyErr("");
+    try {
+      const updated = await updateVendorCompany({
+        name: companyForm.name.trim(),
+        address: companyForm.address.trim(),
+        email: companyForm.email.trim(),
+        contact: companyForm.contact.trim(),
+      });
+      if (updated) {
+        setCompanyForm({
+          name: updated.name || "",
+          address: updated.address || "",
+          email: updated.email || "",
+          contact: updated.contact || "",
+        });
+        if (user) {
+          setUser(prev => ({ ...prev, company: updated.name }));
+        }
+      }
+      setCompanyMsg("Company details saved successfully!");
+      setTimeout(() => {
+        setCompanyMsg("");
+      }, 3500);
+    } catch (err) {
+      setCompanyErr(err.message || "Failed to save company details");
+    } finally {
+      setCompanySaving(false);
+    }
+  };
 
   const scrollToQuotation = () => {
     const el = document.getElementById("quotation-section");
@@ -1424,6 +1506,7 @@ export default function Page() {
         onManageStaff={openStaffModal}
         onInviteStaff={openStaffModal}
         onOpenProfile={handleOpenProfile}
+        onOpenCompanySettings={handleOpenCompanySettings}
         onLogout={handleLogout}
       />
       <div className="app-main">
@@ -2225,6 +2308,21 @@ export default function Page() {
             {user?.role === "vendor" && (
               <div className="kv"><span>Active Staff</span><b>{staffList.length} member(s)</b></div>
             )}
+            {user?.role === "vendor" && (
+              <div style={{ marginTop: "6px" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setProfileModalOpen(false);
+                    handleOpenCompanySettings();
+                  }}
+                  style={{ width: "100%", justifyContent: "center", fontSize: "12px", gap: "6px" }}
+                >
+                  <span>🏢</span> Edit Company Details
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
@@ -2237,6 +2335,129 @@ export default function Page() {
               Close
             </button>
           </div>
+        </Modal>
+      )}
+
+      {/* Vendor Company Settings Modal */}
+      {companySettingsModalOpen && (
+        <Modal onDismiss={() => setCompanySettingsModalOpen(false)} style={{ width: "min(560px, 94vw)", maxWidth: "560px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", borderBottom: "1px solid var(--line)", paddingBottom: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "22px" }}>🏢</span>
+              <div>
+                <h3 style={{ fontSize: "16px", margin: 0, fontWeight: "700" }}>Company Settings</h3>
+                <p className="note" style={{ margin: "2px 0 0", fontSize: "11.5px" }}>
+                  Manage company details, factory address, and contact information.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCompanySettingsModalOpen(false)}
+              style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          {companyLoading ? (
+            <div style={{ padding: "28px 0", textAlign: "center", color: "var(--mute)", fontSize: "13px" }}>
+              Loading company information…
+            </div>
+          ) : (
+            <form onSubmit={handleSaveCompanySettings} style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "10px" }}>
+              <label>
+                <span>
+                  Company / Organization Name <span style={{ color: "var(--err, #ef4444)", marginLeft: "2px" }}>*</span>
+                </span>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Apex Corrugated Packaging Ltd"
+                  value={companyForm.name}
+                  onChange={e => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
+                  disabled={companySaving}
+                />
+              </label>
+
+              <div className="row" style={{ gap: "12px" }}>
+                <label style={{ flex: 1 }}>
+                  Official Email
+                  <input
+                    type="email"
+                    placeholder="sales@apexboxes.com"
+                    value={companyForm.email}
+                    onChange={e => setCompanyForm(prev => ({ ...prev, email: e.target.value }))}
+                    disabled={companySaving}
+                  />
+                </label>
+                <label style={{ flex: 1 }}>
+                  Contact / Phone Number
+                  <input
+                    type="text"
+                    placeholder="+91 98765 43210"
+                    value={companyForm.contact}
+                    onChange={e => setCompanyForm(prev => ({ ...prev, contact: e.target.value }))}
+                    disabled={companySaving}
+                  />
+                </label>
+              </div>
+
+              <label>
+                Plant / Office Address
+                <textarea
+                  rows={3}
+                  placeholder="Plot No., Industrial Area, City, State, PIN..."
+                  value={companyForm.address}
+                  onChange={e => setCompanyForm(prev => ({ ...prev, address: e.target.value }))}
+                  disabled={companySaving}
+                  style={{
+                    width: "100%",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                    fontSize: "13px",
+                    padding: "8px 10px",
+                    borderRadius: "4px",
+                    border: "2px solid #000000",
+                    boxShadow: "2px 2px 0px #000000",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </label>
+
+              {companyMsg && (
+                <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.3)", borderRadius: "6px", padding: "8px 10px", fontSize: "12px", color: "#16a34a", fontWeight: "600" }}>
+                  ✓ {companyMsg}
+                </div>
+              )}
+
+              {companyErr && (
+                <div className="err" style={{ margin: 0 }}>
+                  {companyErr}
+                </div>
+              )}
+
+              <div className="row" style={{ justifyContent: "flex-end", gap: "8px", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: "12px" }}>
+                <button
+                  type="button"
+                  onClick={() => setCompanySettingsModalOpen(false)}
+                  disabled={companySaving}
+                  style={{ flex: "none" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={companySaving}
+                  className="btn pri"
+                  style={{ flex: "none", padding: "6px 16px" }}
+                >
+                  {companySaving ? "Saving…" : "Save Company Details"}
+                </button>
+              </div>
+            </form>
+          )}
         </Modal>
       )}
 

@@ -61,8 +61,9 @@ function SidebarCloseIcon({ size = 15, strokeWidth = 2.2 }) {
  * - onNavigate: (itemId: string) => void
  * - onOpenOrderHistory: () => void
  * - onOpenQuotation: () => void
- * - onInviteStaff: () => void
+ * - onManageStaff: () => void
  * - onOpenProfile: () => void
+ * - onOpenCompanySettings: () => void
  * - onLogout: () => void
  * - collapsed: Optional controlled collapse state
  * - onToggleCollapse: Optional callback when collapse is toggled
@@ -76,6 +77,7 @@ export default function Sidebar({
   onInviteStaff,
   onManageStaff,
   onOpenProfile,
+  onOpenCompanySettings,
   onLogout,
   collapsed: controlledCollapsed,
   onToggleCollapse,
@@ -476,7 +478,7 @@ export default function Sidebar({
               >
                 <span style={{ fontSize: "16px", flexShrink: 0 }}>{item.icon}</span>
                 {!isEffectiveCollapsed && (
-                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span className="sidebar-label" style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {item.label}
                   </span>
                 )}
@@ -538,7 +540,7 @@ export default function Sidebar({
                 }}
               >
                 <span style={{ fontSize: "15px", flexShrink: 0 }}>📜</span>
-                {!isEffectiveCollapsed && <span>Order History</span>}
+                {!isEffectiveCollapsed && <span className="sidebar-label">Order History</span>}
               </button>
             )}
 
@@ -560,7 +562,7 @@ export default function Sidebar({
                 }}
               >
                 <span style={{ fontSize: "15px", flexShrink: 0 }}>⚙️</span>
-                {!isEffectiveCollapsed && <span>Quotation Settings</span>}
+                {!isEffectiveCollapsed && <span className="sidebar-label">Quotation Settings</span>}
               </button>
             )}
 
@@ -582,18 +584,18 @@ export default function Sidebar({
                 }}
               >
                 <span style={{ fontSize: "15px", flexShrink: 0 }}>👥</span>
-                {!isEffectiveCollapsed && <span>Manage Staff</span>}
+                {!isEffectiveCollapsed && <span className="sidebar-label">Manage Staff</span>}
               </button>
             )}
 
-            {onOpenProfile && (
+            {isVendor && onOpenCompanySettings && (
               <button
                 type="button"
-                id="sidebar-action-profile"
-                onClick={onOpenProfile}
+                id="sidebar-action-company-settings"
+                onClick={onOpenCompanySettings}
                 className="neo-sidebar-action-btn"
-                title="My Profile – View and update profile"
-                aria-label="My Profile"
+                title="Company Settings – Edit vendor company details"
+                aria-label="Company Settings"
                 style={isEffectiveCollapsed ? {
                   width: "38px",
                   height: "38px",
@@ -603,8 +605,8 @@ export default function Sidebar({
                   height: "38px",
                 }}
               >
-                <span style={{ fontSize: "15px", flexShrink: 0 }}>👤</span>
-                {!isEffectiveCollapsed && <span>My Profile</span>}
+                <span style={{ fontSize: "15px", flexShrink: 0 }}>🏢</span>
+                {!isEffectiveCollapsed && <span className="sidebar-label">Company Settings</span>}
               </button>
             )}
           </div>
