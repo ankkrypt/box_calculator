@@ -582,17 +582,30 @@ select.unitpick:focus {
   cursor: pointer;
   line-height: 1;
   box-shadow: none;
-  transition: transform 0.15s ease;
+}
+
+.zoom-controls button .reset-icon,
+.zoom-controls button span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: transform 0.2s ease;
 }
 
 .zoom-controls button:hover {
-  transform: rotate(-45deg);
-  background: #f4f4f5;
+  background: transparent;
   box-shadow: none;
 }
 
-.zoom-controls button:active {
-  transform: scale(0.92);
+.zoom-controls button:hover .reset-icon,
+.zoom-controls button:hover span {
+  transform: rotate(-45deg);
+}
+
+.zoom-controls button:active .reset-icon,
+.zoom-controls button:active span {
+  transform: rotate(-45deg) scale(0.92);
   box-shadow: none;
 }
 

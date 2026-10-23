@@ -434,7 +434,7 @@ export default function BoxPreview({ type, L, W, H, J = 35, unit = "mm" }) {
             aria-label="Reset view"
             title="Reset position and view to default"
           >
-            ⟲
+            <span className="reset-icon">⟲</span>
           </button>
         </div>
       </div>
