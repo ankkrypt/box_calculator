@@ -432,6 +432,40 @@ export default function Page() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
   const [profileErr, setProfileErr] = useState("");
+  const profileNameRowRef = useRef(null);
+  const profileEmailRowRef = useRef(null);
+
+  useEffect(() => {
+    if (!isEditingName && !isEditingEmail) return;
+
+    const handleOutsideClick = (e) => {
+      // If clicking bottom action buttons, let their handlers run
+      if (e.target.closest && e.target.closest(".profile-action-btn")) {
+        return;
+      }
+
+      const clickedName = profileNameRowRef.current && profileNameRowRef.current.contains(e.target);
+      const clickedEmail = profileEmailRowRef.current && profileEmailRowRef.current.contains(e.target);
+
+      if (!clickedName && isEditingName) {
+        setIsEditingName(false);
+        if (!profileName.trim()) {
+          setProfileName(user?.name || "");
+        }
+      }
+      if (!clickedEmail && isEditingEmail) {
+        setIsEditingEmail(false);
+        if (!profileEmail.trim()) {
+          setProfileEmail(user?.email || "");
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isEditingName, isEditingEmail, profileName, profileEmail, user]);
 
   const hasProfileChanges = Boolean(
     (profileName.trim() !== (user?.name || "").trim()) ||
@@ -3128,6 +3162,7 @@ export default function Page() {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
               {/* Full Name Row */}
               <div
+                ref={profileNameRowRef}
                 className={`kv profile-editable-row ${isEditingName ? "is-editing" : ""}`}
                 style={{ alignItems: "center" }}
               >
@@ -3211,7 +3246,7 @@ export default function Page() {
                       }}
                       title="Click to edit name"
                     >
-                      {user?.name || "Vendor User"}
+                      {profileName || user?.name || "Vendor User"}
                     </b>
                   )}
                 </div>
@@ -3219,6 +3254,7 @@ export default function Page() {
 
               {/* Email Row */}
               <div
+                ref={profileEmailRowRef}
                 className={`kv profile-editable-row ${isEditingEmail ? "is-editing" : ""}`}
                 style={{ alignItems: "center" }}
               >
@@ -3303,7 +3339,7 @@ export default function Page() {
                       }}
                       title="Click to edit email"
                     >
-                      {user?.email || "—"}
+                      {profileEmail || user?.email || "—"}
                     </b>
                   )}
                 </div>
@@ -3366,7 +3402,7 @@ export default function Page() {
                 <>
                   <button
                     type="button"
-                    className="btn"
+                    className="btn profile-action-btn"
                     onClick={handleCancelProfile}
                     disabled={profileSaving}
                     style={{ flex: "none", padding: "6px 16px" }}
@@ -3375,7 +3411,7 @@ export default function Page() {
                   </button>
                   <button
                     type="button"
-                    className="btn pri"
+                    className="btn pri profile-action-btn"
                     onClick={handleSaveProfile}
                     disabled={profileSaving}
                     style={{ flex: "none", padding: "6px 16px" }}
@@ -3386,7 +3422,7 @@ export default function Page() {
               ) : (
                 <button
                   type="button"
-                  className="btn pri"
+                  className="btn pri profile-action-btn"
                   onClick={() => {
                     setProfileModalOpen(false);
                     handleCancelProfile();
