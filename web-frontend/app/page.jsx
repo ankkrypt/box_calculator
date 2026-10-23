@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   getCurrentUser,
   clearAuthSession,
+  setStoredUser,
+  updateProfile,
   inviteStaff,
   updateStaff,
   getStaffList,
@@ -423,6 +425,18 @@ export default function Page() {
 
   /* Profile Modal State */
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState("");
+  const [profileErr, setProfileErr] = useState("");
+
+  const hasProfileChanges = Boolean(
+    (profileName.trim() !== (user?.name || "").trim()) ||
+    (profileEmail.trim().toLowerCase() !== (user?.email || "").trim().toLowerCase())
+  );
 
   /* Company Settings Modal State (Vendor) */
   const [companySettingsModalOpen, setCompanySettingsModalOpen] = useState(false);
@@ -521,6 +535,12 @@ export default function Page() {
   };
 
   const handleOpenProfile = async () => {
+    setProfileName(user?.name || "");
+    setProfileEmail(user?.email || "");
+    setIsEditingName(false);
+    setIsEditingEmail(false);
+    setProfileMsg("");
+    setProfileErr("");
     setProfileModalOpen(true);
     if (user?.role === "vendor" && staffList.length === 0) {
       try {
@@ -529,6 +549,60 @@ export default function Page() {
       } catch {
         // ignore
       }
+    }
+  };
+
+  const handleCancelProfile = () => {
+    setProfileName(user?.name || "");
+    setProfileEmail(user?.email || "");
+    setIsEditingName(false);
+    setIsEditingEmail(false);
+    setProfileErr("");
+  };
+
+  const handleSaveProfile = async () => {
+    const valName = profileName.trim();
+    const valEmail = profileEmail.trim().toLowerCase();
+
+    if (!valName) {
+      setProfileErr("Full Name cannot be empty");
+      return;
+    }
+    if (!valEmail) {
+      setProfileErr("Email cannot be empty");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(valEmail)) {
+      setProfileErr("Please enter a valid email address");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileMsg("");
+    setProfileErr("");
+    try {
+      const res = await updateProfile({
+        name: valName,
+        email: valEmail,
+      });
+      const updatedUser = {
+        ...user,
+        name: valName,
+        email: valEmail,
+      };
+      setUser(updatedUser);
+      setStoredUser(updatedUser);
+      setIsEditingName(false);
+      setIsEditingEmail(false);
+      setProfileMsg(res?.message || "Profile updated successfully!");
+      setTimeout(() => {
+        setProfileMsg("");
+      }, 3500);
+    } catch (err) {
+      setProfileErr(err.message || "Failed to update profile");
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -3035,12 +3109,15 @@ export default function Page() {
 
         {/* Account Profile Modal */}
         {profileModalOpen && (
-          <Modal onDismiss={() => setProfileModalOpen(false)}>
+          <Modal onDismiss={() => { setProfileModalOpen(false); handleCancelProfile(); }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
               <h3 style={{ fontSize: "16px", margin: 0, fontWeight: "700" }}>Account Profile</h3>
               <button
                 type="button"
-                onClick={() => setProfileModalOpen(false)}
+                onClick={() => {
+                  setProfileModalOpen(false);
+                  handleCancelProfile();
+                }}
                 style={{ background: "transparent", border: "none", color: "var(--mute)", fontSize: "18px", cursor: "pointer", padding: "0 4px" }}
                 aria-label="Close"
               >
@@ -3049,16 +3126,213 @@ export default function Page() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
-              <div className="kv"><span>Full Name</span><b>{user?.name || "Vendor User"}</b></div>
-              <div className="kv"><span>Email</span><b>{user?.email || "—"}</b></div>
-              <div className="kv"><span>Account Role</span><b style={{ textTransform: "capitalize" }}>{user?.role === "vendor" ? "Vendor (Owner)" : "Staff Member"}</b></div>
+              {/* Full Name Row */}
+              <div
+                className={`kv profile-editable-row ${isEditingName ? "is-editing" : ""}`}
+                style={{ alignItems: "center" }}
+              >
+                <span>Full Name</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
+                  {!isEditingName && (
+                    <button
+                      type="button"
+                      className="profile-edit-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProfileErr("");
+                        setIsEditingName(true);
+                      }}
+                      disabled={profileSaving}
+                      title="Edit name"
+                      aria-label="Edit name"
+                      style={{
+                        background: "#ffffff",
+                        color: "#000000",
+                        border: "1.5px solid #000000",
+                        borderRadius: "4px",
+                        width: "24px",
+                        height: "24px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        boxShadow: "1px 1px 0px #000000",
+                        padding: 0,
+                        flexShrink: 0,
+                        fontSize: "12px",
+                        lineHeight: 1,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                      </svg>
+                    </button>
+                  )}
+
+                  {isEditingName ? (
+                    <input
+                      type="text"
+                      required
+                      value={profileName}
+                      onChange={e => setProfileName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSaveProfile();
+                        } else if (e.key === "Escape") {
+                          setIsEditingName(false);
+                          setProfileName(user?.name || "");
+                        }
+                      }}
+                      disabled={profileSaving}
+                      placeholder="Full Name"
+                      autoFocus
+                      style={{
+                        padding: "3px 8px",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        textAlign: "right",
+                        width: "200px",
+                        maxWidth: "55vw",
+                        border: "2px solid #000000",
+                        borderRadius: "4px",
+                        boxShadow: "1px 1px 0px #000000",
+                        background: "#ffffff",
+                      }}
+                    />
+                  ) : (
+                    <b
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        setProfileErr("");
+                        setIsEditingName(true);
+                      }}
+                      title="Click to edit name"
+                    >
+                      {user?.name || "Vendor User"}
+                    </b>
+                  )}
+                </div>
+              </div>
+
+              {/* Email Row */}
+              <div
+                className={`kv profile-editable-row ${isEditingEmail ? "is-editing" : ""}`}
+                style={{ alignItems: "center" }}
+              >
+                <span>Email</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", flex: 1 }}>
+                  {!isEditingEmail && (
+                    <button
+                      type="button"
+                      className="profile-edit-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProfileErr("");
+                        setIsEditingEmail(true);
+                      }}
+                      disabled={profileSaving}
+                      title="Edit email"
+                      aria-label="Edit email"
+                      style={{
+                        background: "#ffffff",
+                        color: "#000000",
+                        border: "1.5px solid #000000",
+                        borderRadius: "4px",
+                        width: "24px",
+                        height: "24px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        boxShadow: "1px 1px 0px #000000",
+                        padding: 0,
+                        flexShrink: 0,
+                        fontSize: "12px",
+                        lineHeight: 1,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                      </svg>
+                    </button>
+                  )}
+
+                  {isEditingEmail ? (
+                    <input
+                      type="email"
+                      required
+                      value={profileEmail}
+                      onChange={e => setProfileEmail(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSaveProfile();
+                        } else if (e.key === "Escape") {
+                          setIsEditingEmail(false);
+                          setProfileEmail(user?.email || "");
+                        }
+                      }}
+                      disabled={profileSaving}
+                      placeholder="email@example.com"
+                      autoFocus
+                      style={{
+                        padding: "3px 8px",
+                        fontSize: "12.5px",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: "700",
+                        textAlign: "right",
+                        width: "220px",
+                        maxWidth: "55vw",
+                        border: "2px solid #000000",
+                        borderRadius: "4px",
+                        boxShadow: "1px 1px 0px #000000",
+                        background: "#ffffff",
+                      }}
+                    />
+                  ) : (
+                    <b
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        setProfileErr("");
+                        setIsEditingEmail(true);
+                      }}
+                      title="Click to edit email"
+                    >
+                      {user?.email || "—"}
+                    </b>
+                  )}
+                </div>
+              </div>
+
+              <div className="kv">
+                <span>Account Role</span>
+                <b style={{ textTransform: "capitalize" }}>{user?.role === "vendor" ? "Vendor (Owner)" : "Staff Member"}</b>
+              </div>
+
               {user?.company && (
-                <div className="kv"><span>Company</span><b>{user.company}</b></div>
+                <div className="kv">
+                  <span>Company</span>
+                  <b>{user.company}</b>
+                </div>
               )}
-              <div className="kv"><span>Subscription Plan</span><b>Active</b></div>
+
+              <div className="kv">
+                <span>Subscription Plan</span>
+                <b>Active</b>
+              </div>
+
               {user?.role === "vendor" && (
-                <div className="kv"><span>Active Staff</span><b>{staffList.length} member(s)</b></div>
+                <div className="kv">
+                  <span>Active Staff</span>
+                  <b>{staffList.length} member(s)</b>
+                </div>
               )}
+
               {user?.role === "vendor" && (
                 <div style={{ marginTop: "6px" }}>
                   <button
@@ -3076,15 +3350,52 @@ export default function Page() {
               )}
             </div>
 
-            <div className="row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
-              <button
-                type="button"
-                className="btn pri"
-                onClick={() => setProfileModalOpen(false)}
-                style={{ flex: "none", padding: "6px 16px" }}
-              >
-                Close
-              </button>
+            {profileMsg && (
+              <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1.5px solid #16a34a", borderRadius: "6px", padding: "8px 12px", fontSize: "12px", color: "#166534", fontWeight: "700", marginBottom: "12px" }}>
+                {profileMsg}
+              </div>
+            )}
+            {profileErr && (
+              <div className="err" style={{ marginBottom: "12px" }}>
+                {profileErr}
+              </div>
+            )}
+
+            <div className="row" style={{ justifyContent: "flex-end", gap: "8px", marginTop: 8 }}>
+              {hasProfileChanges ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleCancelProfile}
+                    disabled={profileSaving}
+                    style={{ flex: "none", padding: "6px 16px" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn pri"
+                    onClick={handleSaveProfile}
+                    disabled={profileSaving}
+                    style={{ flex: "none", padding: "6px 16px" }}
+                  >
+                    {profileSaving ? "Saving…" : "Save Changes"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn pri"
+                  onClick={() => {
+                    setProfileModalOpen(false);
+                    handleCancelProfile();
+                  }}
+                  style={{ flex: "none", padding: "6px 16px" }}
+                >
+                  Close
+                </button>
+              )}
             </div>
           </Modal>
         )}

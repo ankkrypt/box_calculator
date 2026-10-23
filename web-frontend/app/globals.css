@@ -828,6 +828,19 @@ td .note {
   font-size: 13.5px;
 }
 
+.profile-editable-row .profile-edit-btn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.profile-editable-row:hover .profile-edit-btn,
+.profile-editable-row:focus-within .profile-edit-btn,
+.profile-editable-row.is-editing .profile-edit-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .big {
   font-family: var(--font-mono);
   font-size: 30px;

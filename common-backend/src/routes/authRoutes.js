@@ -29,6 +29,7 @@ router.post("/reset-password", requireAuth, userController.resetPassword);
 router.post("/user/signup", userController.signup);
 
 router.get("/user/me", requireAuth, userController.getMe);
+router.put("/user/me", requireAuth, userController.updateMe);
 
 // Staff management
 router.post(

@@ -741,6 +741,49 @@ async function getMe(req, res, next) {
   }
 }
 
+/* PUT /api/auth/user/me
+   Allows the authenticated user (vendor or staff) to update their own name and email. */
+async function updateMe(req, res, next) {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findById(req.auth.userId);
+    if (!user) {
+      return res.status(404).json({ error: { message: "Account not found", status: 404 } });
+    }
+
+    if (name !== undefined) {
+      const trimmedName = String(name).trim();
+      if (!trimmedName) {
+        return res.status(400).json({ error: { message: "Name cannot be empty", status: 400 } });
+      }
+      user.name = trimmedName;
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = String(email).toLowerCase().trim();
+      if (!normalizedEmail) {
+        return res.status(400).json({ error: { message: "Email cannot be empty", status: 400 } });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return res.status(400).json({ error: { message: "Invalid email format", status: 400 } });
+      }
+      if (normalizedEmail !== user.email) {
+        const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+        if (existing) {
+          return res.status(409).json({ error: { message: "Email is already registered", status: 409 } });
+        }
+        user.email = normalizedEmail;
+      }
+    }
+
+    await user.save();
+
+    return res.json({ ok: true, message: "Profile updated successfully" });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 /* --------------------------------------------------------------------------
    SETTINGS (quotation rates)
    -------------------------------------------------------------------------- */
@@ -846,6 +889,7 @@ module.exports = {
   updateStaff,
   getStaffList,
   getMe,
+  updateMe,
   getSettings,
   updateSettings,
 };

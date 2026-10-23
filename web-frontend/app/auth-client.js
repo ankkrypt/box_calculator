@@ -223,6 +223,13 @@ export async function updateStaff(id, payload = {}) {
   });
 }
 
+export async function updateProfile({ name, email }) {
+  return api("/api/auth/user/me", {
+    method: "PUT",
+    body: { name, email },
+  });
+}
+
 export async function getStaffList() {
   const data = await api("/api/auth/user/staff");
   return data?.staff || [];
