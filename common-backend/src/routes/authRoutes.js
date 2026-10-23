@@ -37,14 +37,18 @@ router.post(
   requirePermission("staff", "create"),
   userController.inviteStaff,
 );
-
 router.delete(
   "/user/remove-staff/:id",
   requireAuth,
   requirePermission("staff", "delete"),
   userController.removeStaff,
 );
-
+router.put(
+  "/user/staff/:id",
+  requireAuth,
+  requirePermission("staff", "update"),
+  userController.updateStaff,
+);
 router.get(
   "/user/staff",
   requireAuth,

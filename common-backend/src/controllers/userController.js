@@ -627,6 +627,68 @@ async function removeStaff(req, res, next) {
   }
 }
 
+/* PUT /api/auth/user/staff/:id */
+async function updateStaff(req, res, next) {
+  try {
+    const staffId = req.params.id;
+    const { permissions, name, email } = req.body;
+    const targetVendorId = req.auth.role === "vendor" ? req.auth.userId : req.auth.vendorId;
+
+    const staff = await User.findOne({
+      _id: staffId,
+      role: "staff",
+      vendorId: targetVendorId,
+    });
+
+    if (!staff) {
+      return res.status(404).json({ error: { message: "Staff member not found", status: 404 } });
+    }
+
+    if (name !== undefined) {
+      const trimmedName = String(name).trim();
+      if (!trimmedName) {
+        return res.status(400).json({ error: { message: "Name cannot be empty", status: 400 } });
+      }
+      staff.name = trimmedName;
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = String(email).toLowerCase().trim();
+      if (!normalizedEmail) {
+        return res.status(400).json({ error: { message: "Email cannot be empty", status: 400 } });
+      }
+      if (normalizedEmail !== staff.email) {
+        const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: staffId } });
+        if (existing) {
+          return res.status(409).json({ error: { message: "Email is already registered", status: 409 } });
+        }
+        staff.email = normalizedEmail;
+      }
+    }
+
+    if (permissions && typeof permissions === "object") {
+      staff.permissions = {
+        reel: { ...(staff.permissions?.reel || {}), ...(permissions.reel || {}) },
+        flute: { ...(staff.permissions?.flute || {}), ...(permissions.flute || {}) },
+        tolerance: { ...(staff.permissions?.tolerance || {}), ...(permissions.tolerance || {}) },
+        paper: { ...(staff.permissions?.paper || {}), ...(permissions.paper || {}) },
+        order: { ...(staff.permissions?.order || {}), ...(permissions.order || {}) },
+        staff: { ...(staff.permissions?.staff || {}), ...(permissions.staff || {}) },
+        quotation: { ...(staff.permissions?.quotation || {}), ...(permissions.quotation || {}) },
+        vendorCompany: { ...(staff.permissions?.vendorCompany || {}), ...(permissions.vendorCompany || {}) },
+      };
+      staff.markModified("permissions");
+    }
+
+    await staff.save();
+
+    return res.json({ staff, message: "Staff updated successfully" });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+
 /* GET /api/auth/user/staff (vendor only) */
 async function getStaffList(req, res, next) {
   try {
@@ -781,6 +843,7 @@ module.exports = {
   resetPasswordWithToken,
   inviteStaff,
   removeStaff,
+  updateStaff,
   getStaffList,
   getMe,
   getSettings,

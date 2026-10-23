@@ -201,10 +201,25 @@ export async function resetPasswordWithToken({ token, password }) {
 /* User-account management
    All User-account operations now live under /api/auth/user. Staff management
    is still vendor-only (gated in the backend via requireRole("vendor")). */
-export async function inviteStaff({ email, name }) {
+export async function inviteStaff({ email, name, permissions }) {
   return api("/api/auth/user/invite-staff", {
     method: "POST",
-    body: { email, name },
+    body: { email, name, permissions },
+  });
+}
+
+export async function updateStaff(id, payload = {}) {
+  // Support both updateStaff(id, { name, email, permissions }) or updateStaff({ id, name, email, permissions })
+  let staffId = id;
+  let bodyPayload = payload;
+  if (typeof id === "object" && id !== null) {
+    staffId = id.id || id._id;
+    bodyPayload = id;
+  }
+  const { name, email, permissions } = bodyPayload;
+  return api(`/api/auth/user/staff/${staffId}`, {
+    method: "PUT",
+    body: { name, email, permissions },
   });
 }
 
